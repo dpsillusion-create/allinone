@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AllInOne KI</title>
+<title>MERCYVERSE</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
-<meta name="theme-color" content="#0f1115">
+<meta name="theme-color" content="#050a12">
 <script src="store.js"></script>
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/theme.css">
 </head>
 <body>
 <nav id="side">
-  <h1>✨ AllInOne KI</h1>
+  <h1>Mercyverse<small>All-in-One KI</small></h1>
   <button class="nav" id="profBtn" style="display:none" title="Profil wechseln"></button>
   <button class="nav on" data-v="chat">💬 Chat</button>
   <button class="nav" data-v="studio">🧩 Studio (Live-Vorschau)</button>
@@ -61,7 +62,7 @@
         <button class="on" id="tPrev">👁 Vorschau</button><button id="tCode">&lt;/&gt; Code</button>
         <select id="verSel" title="Versionsverlauf"></select><button id="verRestore" title="Diese Version wiederherstellen">↩ Zurück</button><button id="verSave" title="Aktuellen Stand als Version speichern">💾</button>
         <span class="sp"></span>
-        <button id="pReload" title="Vorschau neu laden">⟳</button><button id="pCopy">Kopieren</button><button id="pZip">⬇ ZIP</button><button id="pDl">⬇ HTML</button><button id="pWin">↗ Fenster</button>
+        <button id="pReload" title="Vorschau neu laden">⟳</button><button id="pCopy">Kopieren</button><button id="pZip">⬇ ZIP</button><button id="pDl">⬇ HTML</button><button id="pFull" title="Vorschau im Vollbild">⛶ Vollbild</button><button id="pWin">↗ Fenster</button>
       </div>
       <div class="tabs" id="ftabs" style="display:none"></div>
       <iframe id="frame" sandbox="allow-scripts allow-forms allow-modals allow-popups" srcdoc="<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0'>Hier erscheint deine Vorschau</body>"></iframe>
@@ -180,6 +181,7 @@
 <script src="js/voice.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/tools.js"></script>
+<script src="js/viewer.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

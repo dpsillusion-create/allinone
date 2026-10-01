@@ -9,7 +9,7 @@ const SUGG=["Erkläre mir Quantenphysik einfach","Schreibe eine Python-Funktion 
 function addMsg(box,role,text,imgs){const d=document.createElement("div");d.className="msg "+role;d.innerHTML=`<div class="av">${role==="user"?"🧑":"✨"}</div><div class="body"></div>`;box.appendChild(d);
   const b=d.querySelector(".body");if(role==="user"){b.textContent=text;(imgs||[]).forEach(u=>{const i=new Image();i.src=u;b.prepend(i)})}else render(b,text);box.scrollTop=box.scrollHeight;return b}
 function drawChat(){drawHist();const box=$("#msgs"),c=S.chats.find(x=>x.id===S.cur);box.innerHTML="";
-  if(!c||!c.msgs.length){box.innerHTML=`<div class="empty"><h2>Wie kann ich helfen?</h2>Chat, Code, Bilder, Texte & Sprache – alles kostenlos an einem Ort.<div class="chips">${SUGG.map(s=>`<button>${s}</button>`).join("")}</div></div>`;
+  if(!c||!c.msgs.length){box.innerHTML=`<div class="empty"><h2>Willkommen im MERCYVERSE</h2>Chat, Code, Bilder, Texte & Sprache – alles kostenlos an einem Ort.<div class="chips">${SUGG.map(s=>`<button>${s}</button>`).join("")}</div></div>`;
     box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#inp").value=b.textContent;sendChat()});return}
   c.msgs.forEach(m=>addMsg(box,m.role,m.display??m.content,m.imgs))}
 function busy(on){$("#send").style.display=on?"none":"";$("#stop").style.display=on?"":"none"}

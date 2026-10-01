@@ -141,6 +141,63 @@ test('Prompt-Agent: Bilder und Dateien anhängen (auch ohne Text), Chips, Entfer
   assert.deepEqual(errs, []);
 });
 
+const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+test('Bilder: --ar wird als Format übernommen und aus dem Prompt entfernt', async () => {
+  const p = await open(() => 'x');
+  await p.route('**/image.pollinations.ai/**', r => r.fulfill({ contentType: 'image/png', body: PNG }));
+  await p.click('[data-v=images]');
+  await p.fill('#ip', 'Neon city, --ar 16:9 --v 6'); await p.click('#iGo');
+  await p.waitForSelector('#igrid .card img');
+  const url = await p.getAttribute('#igrid .card img', 'src');
+  assert.match(url, /width=1344&height=768/);
+  assert.doesNotMatch(decodeURIComponent(url), /--ar|--v/);
+  await p.fill('#ip', 'Hochkant --ar 9:16'); await p.click('#iGo'); await p.waitForFunction(() => document.querySelectorAll('#igrid .card').length === 2);
+  assert.match(await p.getAttribute('#igrid .card img', 'src'), /width=768&height=1344/);
+  noErrors(p);
+});
+
+test('Großansicht: Galerie öffnen, zoomen, blättern, Esc, Download-Knopf', async () => {
+  const p = await open(() => 'x');
+  await p.route('**/image.pollinations.ai/**', r => r.fulfill({ contentType: 'image/png', body: PNG }));
+  await p.click('[data-v=images]');
+  for (const t of ['Eins', 'Zwei']) { await p.fill('#ip', t); await p.click('#iGo'); }
+  await p.waitForFunction(() => document.querySelectorAll('#igrid .card').length === 2);
+  await p.locator('#igrid .card img').first().click();
+  await p.waitForSelector('#vw.on');
+  assert.equal((await p.innerText('#vw .cnt')).trim(), '1 / 2');
+  const scale = async () => parseFloat((await p.getAttribute('#vw .stage img', 'style')).match(/scale\(([\d.]+)\)/)[1]);
+  await p.waitForFunction(() => /scale\(/.test(document.querySelector('#vw .stage img')?.style.transform || ''));
+  const s0 = await scale();
+  const box = await p.locator('#vw .stage').boundingBox();
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await p.mouse.wheel(0, -400);
+  await p.waitForFunction(s => parseFloat(document.querySelector('#vw .stage img').style.transform.match(/scale\(([\d.]+)\)/)[1]) > s, s0);
+  await p.keyboard.press('0');                                      // Einpassen
+  await p.waitForFunction(s => Math.abs(parseFloat(document.querySelector('#vw .stage img').style.transform.match(/scale\(([\d.]+)\)/)[1]) - s) < .01, s0);
+  await p.keyboard.press('ArrowRight');
+  assert.equal((await p.innerText('#vw .cnt')).trim(), '2 / 2');
+  assert.ok(await p.locator('#vw [data-a=dl]').isVisible());
+  await p.keyboard.press('Escape');
+  await p.waitForSelector('#vw.on', { state: 'detached' }).catch(() => {});
+  assert.equal(await p.locator('#vw.on').count(), 0);
+  noErrors(p);
+});
+
+test('Großansicht: Anhang-Bild im Chat und Studio-Vollbild', async () => {
+  let n = 0;
+  const p = await open(() => n++ === 0 ? 'FILE: index.html\n```html\n<h1 id=x>Vollbild-Test</h1>\n```' : 'ok');
+  await p.setInputFiles('#file', [{ name: 'x.png', mimeType: 'image/png', buffer: PNG }]);
+  await p.locator('.att img').click();
+  await p.waitForSelector('#vw.on'); await p.keyboard.press('Escape');
+  assert.equal(await p.locator('#vw.on').count(), 0);
+  await p.click('[data-v=studio]'); await p.fill('#sinp', 'bau'); await p.click('#ssend');
+  await p.waitForFunction(() => document.querySelector('#smsgs').innerText.includes('Aktualisiert'));
+  await p.click('#pFull'); await p.waitForSelector('#vw.on iframe');
+  assert.equal(await p.frameLocator('#vw iframe').locator('#x').innerText(), 'Vollbild-Test');
+  await p.keyboard.press('Escape');
+  noErrors(p);
+});
+
 // --- Bereiche mit Bibliotheken von cdnjs (werden übersprungen, wenn das Netz fehlt) ---
 const cdnOk = await fetch('https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js', { method: 'HEAD' }).then(r => r.ok, () => false);
 const cdn = { skip: cdnOk ? false : 'cdnjs nicht erreichbar' };
@@ -151,6 +208,9 @@ test('Diagramme: Syntaxfehler werden automatisch repariert', cdn, async () => {
     ? 'mindmap\n  root((Ernährung))\n    Obst\n    Gemüse' : '```mermaid\nmindmap\n  root((Test\n```');
   await p.click('[data-v=diagram]'); await p.fill('#dgIn', 'Mindmap'); await p.click('#dgGo');
   await p.waitForSelector('#dgOut svg', { timeout: 30000 });
+  await p.locator('#dgOut svg').click();                         // Großansicht des Diagramms
+  await p.waitForSelector('#vw.on .stage img');
+  assert.match(await p.getAttribute('#vw .stage img', 'src'), /^data:image\/svg\+xml/);
   noErrors(p);
 });
 

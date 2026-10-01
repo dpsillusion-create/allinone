@@ -1,5 +1,4 @@
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff;--ok:#4ade80;--err:#f87171}
-@media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex}

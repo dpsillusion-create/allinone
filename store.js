@@ -84,8 +84,8 @@
   function banner() {
     if (document.getElementById("aioSync")) return;
     var d = document.createElement("div"); d.id = "aioSync";
-    d.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99;background:#1d2130;color:#e8eaf0;border:1px solid #7c8cff;border-radius:10px;padding:8px 14px;font:14px system-ui;display:flex;gap:10px;align-items:center";
-    d.innerHTML = "🔄 Auf einem anderen Gerät wurde etwas geändert. <button style='cursor:pointer;border-radius:6px;border:0;padding:4px 10px;background:#7c8cff;color:#fff'>Neu laden</button>";
+    d.style.cssText = "position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99;background:#0f1c2d;color:#e8eaf0;border:1px solid #19e3d2;border-radius:10px;padding:8px 14px;font:14px system-ui;display:flex;gap:10px;align-items:center";
+    d.innerHTML = "🔄 Auf einem anderen Gerät wurde etwas geändert. <button style='cursor:pointer;border-radius:6px;border:0;padding:4px 10px;background:#19e3d2;color:#031219'>Neu laden</button>";
     d.querySelector("button").onclick = function () { location.reload(); };
     document.body.appendChild(d);
   }
@@ -97,24 +97,24 @@
     S.locked = true;
     function build() {
       var o = document.createElement("div");
-      o.style.cssText = "position:fixed;inset:0;z-index:1000;background:#0f1115;color:#e8eaf0;font:15px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto";
-      o.innerHTML = "<div style='max-width:420px;width:100%;text-align:center'><h2 style='margin:0 0 4px;background:linear-gradient(135deg,#7c8cff,#b07cff);-webkit-background-clip:text;background-clip:text;color:transparent'>✨ AllInOne KI</h2><p style='color:#8b93a7;margin:0 0 16px'>Wer nutzt die App?</p><div id='aioPL'></div><div id='aioPF'></div><div id='aioPE' style='color:#f87171;min-height:20px;margin-top:10px'></div></div>";
+      o.style.cssText = "position:fixed;inset:0;z-index:1000;background:#050a12;color:#e8eaf0;font:15px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto";
+      o.innerHTML = "<div style='max-width:420px;width:100%;text-align:center'><h2 style='margin:0 0 4px;background:linear-gradient(135deg,#19e3d2,#9a6bff);-webkit-background-clip:text;background-clip:text;color:transparent'>MERCYVERSE</h2><p style='color:#8b93a7;margin:0 0 16px'>Wer nutzt die App?</p><div id='aioPL'></div><div id='aioPF'></div><div id='aioPE' style='color:#f87171;min-height:20px;margin-top:10px'></div></div>";
       document.body.appendChild(o);
       var PL = o.querySelector("#aioPL"), PF = o.querySelector("#aioPF"), PE = o.querySelector("#aioPE");
-      var bs = "cursor:pointer;display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #2a3042;background:#1d2130;color:#e8eaf0;font:inherit;text-align:left";
-      var is = "width:100%;margin:6px 0;padding:10px;border-radius:8px;border:1px solid #2a3042;background:#1d2130;color:#e8eaf0;font:inherit;box-sizing:border-box";
+      var bs = "cursor:pointer;display:block;width:100%;margin:6px 0;padding:12px;border-radius:10px;border:1px solid #173a42;background:#0f1c2d;color:#e8eaf0;font:inherit;text-align:left";
+      var is = "width:100%;margin:6px 0;padding:10px;border-radius:8px;border:1px solid #173a42;background:#0f1c2d;color:#e8eaf0;font:inherit;box-sizing:border-box";
       var esc = function (t) { return t.replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
       function enter(id, token) { set("aioProfile", id); if (token) set("aioToken", token); else del("aioToken"); location.reload(); }
       function api(method, url, body, cb) { var xx = new XMLHttpRequest(); xx.open(method, dir + url); xx.setRequestHeader("X-AIO", "1"); xx.setRequestHeader("Content-Type", "application/json");
         xx.onload = function () { cb(xx.status, J(xx)); }; xx.onerror = function () { cb(0, {}); }; xx.send(JSON.stringify(body || {})); }
       function pinForm(p) {
-        PE.textContent = ""; PF.innerHTML = "<p>PIN für <b>" + esc(p.name) + "</b></p><input id='aioPin' type='password' inputmode='numeric' autocomplete='off' style='" + is + "'><button id='aioGo' style='" + bs + ";text-align:center;background:#7c8cff;border:0;font-weight:600'>Weiter</button><button id='aioBk' style='" + bs + ";text-align:center'>Zurück</button>";
+        PE.textContent = ""; PF.innerHTML = "<p>PIN für <b>" + esc(p.name) + "</b></p><input id='aioPin' type='password' inputmode='numeric' autocomplete='off' style='" + is + "'><button id='aioGo' style='" + bs + ";text-align:center;background:#19e3d2;border:0;font-weight:600'>Weiter</button><button id='aioBk' style='" + bs + ";text-align:center'>Zurück</button>";
         var inp = PF.querySelector("#aioPin"); inp.focus();
         var go = function () { api("POST", "profiles/" + p.id + "/login", { pin: inp.value }, function (st, r) { if (st === 200) enter(p.id, r.token); else PE.textContent = r.error || "Fehler"; }); };
         PF.querySelector("#aioGo").onclick = go; inp.onkeydown = function (e) { if (e.key === "Enter") go(); }; PF.querySelector("#aioBk").onclick = home;
       }
       function newForm() {
-        PE.textContent = ""; PL.innerHTML = ""; PF.innerHTML = "<p>Neues Profil</p><input id='aioNm' maxlength='30' placeholder='Name' style='" + is + "'><input id='aioNp' type='password' autocomplete='new-password' placeholder='PIN (optional, mind. 4 Zeichen)' style='" + is + "'><button id='aioCr' style='" + bs + ";text-align:center;background:#7c8cff;border:0;font-weight:600'>Erstellen</button><button id='aioBk' style='" + bs + ";text-align:center'>Abbrechen</button>";
+        PE.textContent = ""; PL.innerHTML = ""; PF.innerHTML = "<p>Neues Profil</p><input id='aioNm' maxlength='30' placeholder='Name' style='" + is + "'><input id='aioNp' type='password' autocomplete='new-password' placeholder='PIN (optional, mind. 4 Zeichen)' style='" + is + "'><button id='aioCr' style='" + bs + ";text-align:center;background:#19e3d2;border:0;font-weight:600'>Erstellen</button><button id='aioBk' style='" + bs + ";text-align:center'>Abbrechen</button>";
         PF.querySelector("#aioNm").focus();
         PF.querySelector("#aioCr").onclick = function () { api("POST", "profiles", { name: PF.querySelector("#aioNm").value, pin: PF.querySelector("#aioNp").value }, function (st, r) { if (st === 200) enter(r.id, r.token); else PE.textContent = r.error || "Fehler"; }); };
         PF.querySelector("#aioBk").onclick = home;

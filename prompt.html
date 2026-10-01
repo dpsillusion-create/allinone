@@ -3,9 +3,8 @@
 <title>Prompt-Agent</title><script src="store.js"></script><script src="js/ai.js"></script><script src="js/files.js"></script><link rel="icon" href="icon.svg">
 <style>
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff}
-@media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif;padding:14px;max-width:760px;margin:auto}
-h1{font-size:16px;margin:0 0 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:16px;margin:0 0 12px;letter-spacing:.12em;text-transform:uppercase;background:var(--grad,linear-gradient(135deg,#19e3d2,#9a6bff));-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 8px rgba(25,227,210,.35))}
 button,select,textarea,input{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;outline:none}
 button{cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.5}
 button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;color:#fff;font-weight:600}
@@ -16,8 +15,8 @@ label{font-size:12px;color:var(--muted)}.q{margin-top:8px}.q input{width:100%;ma
 #out{min-height:150px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace}
 .att{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:2px 10px;font-size:12px;display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0}.att img{height:22px;border-radius:4px}.att b{cursor:pointer;font-weight:400;color:var(--muted)}.drop{outline:2px dashed var(--accent)}
 .st{color:var(--muted);font-size:12px;margin-top:6px}#hist button{display:block;width:100%;text-align:left;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
-</style></head><body>
-<h1>🪄 Prompt-Agent</h1>
+</style><link rel="stylesheet" href="css/theme.css"></head><body>
+<h1>🪄 MERCYVERSE · Prompt-Agent</h1>
 <div class="box">
   <label>Was möchtest du erreichen?</label>
   <textarea id="goal" rows="3" placeholder="z. B. „Ich will eine Webseite für mein Café“ oder „Ein Logo für meine Firma“"></textarea>
