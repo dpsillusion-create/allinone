@@ -1,6 +1,5 @@
 "use strict";
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const API="https://text.pollinations.ai/openai";
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1800)}
@@ -8,7 +7,7 @@ const copy=t=>{const ok=()=>toast("Kopiert ✔"),fb=()=>{try{const a=document.cr
   navigator.clipboard?navigator.clipboard.writeText(t).then(ok,fb):fb()};
 
 /* ---------- Zustand ---------- */
-let S=Object.assign({chats:[],cur:null,model:"openai",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
+let S=Object.assign({chats:[],cur:null,model:"openai-fast",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
 const save=()=>LS.set("aio",{...S,chats:S.chats.map(c=>({...c,msgs:c.msgs.map(({imgs,...m})=>m)}))});
 let studioMsgs=[], lastHtml="", ctrl=null;
 const STUDIO_SYS="Du bist ein Webentwickler. Antworte sehr kurz (1-2 Sätze) und liefere das Projekt als Dateien. Jede Datei: eine Zeile `FILE: dateiname` und direkt darunter ein Codeblock mit dem VOLLSTÄNDIGEN Inhalt. Einstiegspunkt ist immer index.html; CSS/JS dürfen als style.css / script.js getrennt sein (in index.html per <link href=\"style.css\"> bzw. <script src=\"script.js\"> einbinden) oder inline stehen. Keine Build-Tools; externe Bibliotheken nur per CDN. Gib bei Änderungen NUR die geänderten Dateien vollständig zurück.";
@@ -44,43 +43,3 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(
   if(b.dataset.act==="copy")copy(code);else{setPreview(code);show("studio")}});
 
 /* ---------- KI-Aufruf (Streaming) ---------- */
-class AiError extends Error{constructor(kind,status){super(AiError.text(kind,status));this.kind=kind;this.status=status}
-  static text(kind,st){return kind==="rate"?"Das Gratis-Kontingent ist gerade ausgelastet. Bitte kurz warten und erneut versuchen."
-    :kind==="server"?"Der KI-Dienst ist gerade nicht erreichbar (Status "+st+"). Bitte später erneut versuchen."
-    :kind==="timeout"?"Keine Antwort erhalten (Zeitüberschreitung). Bitte erneut versuchen oder ein anderes Modell wählen."
-    :kind==="network"?"Keine Verbindung zum KI-Dienst. Prüfe deine Internetverbindung."
-    :"Anfrage abgelehnt (Status "+st+"). Versuche ein anderes Modell."}}
-const aiKind=st=>st===429?"rate":st>=500?"server":"client";
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-/* Ein Versuch mit genau einem Modell. Bricht ohne erstes Token nach 45 s ab. */
-async function askOnce(messages,onToken,signal,model){
-  const ctl=new AbortController();let timedOut=false;
-  const onAbort=()=>ctl.abort();signal&&(signal.aborted?ctl.abort():signal.addEventListener("abort",onAbort));
-  const timer=setTimeout(()=>{timedOut=true;ctl.abort()},45000);
-  let full="";
-  try{
-    let r;try{r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,body:JSON.stringify({model,messages,stream:true})})}
-    catch(e){if(timedOut)throw new AiError("timeout");if(e.name==="AbortError")throw e;throw new AiError("network")}
-    if(!r.ok)throw new AiError(aiKind(r.status),r.status);
-    const rd=r.body.getReader(),dec=new TextDecoder();let buf="";
-    for(;;){let c;try{c=await rd.read()}catch(e){if(timedOut)throw new AiError("timeout");if(e.name==="AbortError")throw e;throw new AiError("network")}
-      if(c.done)break;buf+=dec.decode(c.value,{stream:true});
-      const lines=buf.split("\n");buf=lines.pop();
-      for(const l of lines){if(!l.startsWith("data:"))continue;const d=l.slice(5).trim();if(d==="[DONE]")continue;
-        try{const t=JSON.parse(d).choices?.[0]?.delta?.content;if(t){if(!full)clearTimeout(timer);full+=t;onToken(full)}}catch{}}}
-    return full;
-  }catch(e){e.partial=full;throw e}
-  finally{clearTimeout(timer);signal&&signal.removeEventListener("abort",onAbort)}}
-/* Normalfall: gewähltes Modell; bei Limit/Ausfall bis zu 2 andere Modelle. Explizit angegebenes Modell wird nie ersetzt. */
-async function ask(messages,onToken,signal,model){
-  const fixed=!!model,first=model||S.model,tried=[first];let lastErr;
-  for(let i=0;i<3;i++){
-    const m=tried[tried.length-1];
-    try{return await askOnce(messages,onToken,signal,m)}
-    catch(e){
-      lastErr=e;if(e.name==="AbortError"||fixed||e.partial||!(e instanceof AiError)||e.kind==="client")break;
-      const next=(window.AIO_MODELS||[]).find(x=>!tried.includes(x));if(!next||i===2)break;
-      if(e.kind==="rate")await sleep(1500);
-      tried.push(next);toast(`Modell „${m}“ nicht verfügbar – versuche „${next}“ …`)}}
-  throw lastErr}
-const ask1=(messages,model)=>ask(messages,()=>{},undefined,model);

@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prompt-Agent</title><script src="store.js"></script><script src="js/files.js"></script><link rel="icon" href="icon.svg">
+<title>Prompt-Agent</title><script src="store.js"></script><script src="js/ai.js"></script><script src="js/files.js"></script><link rel="icon" href="icon.svg">
 <style>
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff}
 @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
@@ -50,18 +50,13 @@ label{font-size:12px;color:var(--muted)}.q{margin-top:8px}.q input{width:100%;ma
 <div class="box"><label>Verlauf</label><div id="hist"></div></div>
 <script>
 "use strict";
-const $=s=>document.querySelector(s),API="https://text.pollinations.ai/openai";
+const $=s=>document.querySelector(s);
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-let model="openai";try{model=(LS.get("aio",{}).model)||"openai"}catch{}
-async function ask(system,user,onTok){
-  let r;try{r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,stream:!!onTok,messages:[{role:"system",content:system},{role:"user",content:user}]})})}catch(e){throw new Error("Keine Verbindung zum KI-Dienst. Prüfe deine Internetverbindung.")}
-  if(!r.ok)throw new Error(r.status===429?"Das Gratis-Kontingent ist gerade ausgelastet – bitte kurz warten und erneut versuchen.":r.status>=500?"Der KI-Dienst ist gerade nicht erreichbar.":"Anfrage abgelehnt (Status "+r.status+").");
-  if(!onTok)return(await r.json()).choices[0].message.content;
-  const rd=r.body.getReader(),dec=new TextDecoder();let buf="",full="";
-  for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split("\n");buf=ls.pop();
-    for(const l of ls){if(!l.startsWith("data:"))continue;const d=l.slice(5).trim();if(d==="[DONE]")continue;try{const t=JSON.parse(d).choices?.[0]?.delta?.content;if(t){full+=t;onTok(full)}}catch{}}}
-  return full}
+const S={model:(LS.get("aio",{}).model)||"openai-fast"},toast=t=>st(t);
+fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const info={};l.forEach(x=>{[x.name,...(x.aliases||[])].forEach(n=>info[n]=x)});window.AIO_MODEL_INFO=info;window.AIO_MODELS=l.map(x=>x.name);if(!info[S.model])S.model=l[0].name}).catch(()=>{});
+/** KI-Aufruf des Agenten über die gemeinsame Schicht (Timeout, Wiederholung, „Denkt nach“-Anzeige) */
+const agent=(system,user,onTok)=>ask([{role:"system",content:system},{role:"user",content:user}],onTok||(()=>{}),undefined,undefined,()=>st("💭 Der Agent denkt nach …"));
 const HINT={
  chat:"Zielsystem: Chat-KI. Struktur: Rolle, Kontext, Aufgabe, Schritte/Vorgehen, Format der Antwort, Einschränkungen. Antwortsprache wie die Eingabe.",
  code:"Zielsystem: KI zum Programmieren/Bauen von Apps. Nenne Technologie, Features (Liste), Design/Stil, Verhalten bei Fehlern, Dateistruktur und fordere vollständigen, lauffähigen Code in einer Datei.",
@@ -94,7 +89,7 @@ async function run(){
   const goal=$("#goal").value.trim()||(atts.length?"Erstelle auf Basis der Anhänge einen passenden Prompt.":"");if(!goal)return;const target=$("#target").value;$("#go").disabled=true;$("#qs").innerHTML="";st("Der Agent denkt nach …");
   try{
     if($("#ask").checked&&!pending){
-      const raw=await ask(sysFor(SYS)+'Prüfe, ob für einen wirklich guten Prompt wichtige Infos fehlen. Antworte NUR mit JSON: {"questions":["…"]} mit 0–3 kurzen, konkreten Rückfragen (leer, wenn genug Infos). '+HINT[target],userContent(goal));
+      const raw=await agent(sysFor(SYS)+'Prüfe, ob für einen wirklich guten Prompt wichtige Infos fehlen. Antworte NUR mit JSON: {"questions":["…"]} mit 0–3 kurzen, konkreten Rückfragen (leer, wenn genug Infos). '+HINT[target],userContent(goal));
       let qs=[];try{qs=JSON.parse(raw.match(/\{[\s\S]*\}/)[0]).questions||[]}catch{}
       if(qs.length){pending={goal,target,qs};$("#qs").innerHTML=qs.slice(0,3).map((q,i)=>`<div class="q"><label>${esc(q)}</label><input data-q="${i}" placeholder="(optional)"></div>`).join("")+'<div class="row"><button class="primary" id="qgo">Weiter</button><button id="qskip">Überspringen</button></div>';
         $("#qgo").onclick=()=>finish(true);$("#qskip").onclick=()=>finish(false);st("Ein paar Rückfragen für ein besseres Ergebnis:");return}}
@@ -105,12 +100,12 @@ async function finish(useAns){
   $("#qs").innerHTML="";try{await gen(p.goal,p.target,ans)}catch(e){st("⚠️ "+e.message)}}
 async function gen(goal,target,ans){
   st("Erstelle Prompt …");show("");
-  const t=await ask(sysFor(SYS)+HINT[target]+" Gib AUSSCHLIESSLICH den fertigen Prompt aus – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen drumherum. Platzhalter in [eckigen Klammern], wo der Nutzer noch etwas einsetzen muss.",
+  const t=await agent(sysFor(SYS)+HINT[target]+" Gib AUSSCHLIESSLICH den fertigen Prompt aus – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen drumherum. Platzhalter in [eckigen Klammern], wo der Nutzer noch etwas einsetzen muss.",
     userContent("Wunsch des Nutzers:\n"+goal+(ans?"\n\nZusätzliche Angaben:\n"+ans:"")),x=>$("#out").value=x);
   hist.unshift({goal,target,prompt:t});hist=hist.slice(0,15);LS.set("aioPrompts",hist);drawHist();st(atts.length?"Fertig ✔ – Bilder/Dateien musst du beim Ziel-Tool selbst wieder anhängen.":"Fertig ✔")}
 async function refine(m){
   const cur=$("#out").value;if(!cur)return;st("Passe an …");
-  try{await ask(SYS+HINT[$("#target").value]+" Überarbeite den gegebenen Prompt gemäß Anweisung. Gib AUSSCHLIESSLICH den neuen Prompt aus.","Aktueller Prompt:\n"+cur+"\n\nAnweisung: "+m,x=>$("#out").value=x);st("Fertig ✔")}catch(e){st("⚠️ "+e.message)}}
+  try{await agent(SYS+HINT[$("#target").value]+" Überarbeite den gegebenen Prompt gemäß Anweisung. Gib AUSSCHLIESSLICH den neuen Prompt aus.","Aktueller Prompt:\n"+cur+"\n\nAnweisung: "+m,x=>$("#out").value=x);st("Fertig ✔")}catch(e){st("⚠️ "+e.message)}}
 $("#go").onclick=()=>{pending=null;run()};
 $("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){pending=null;run()}});
 $("#copy").onclick=()=>navigator.clipboard.writeText($("#out").value).then(()=>st("Kopiert ✔"));

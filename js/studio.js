@@ -27,7 +27,7 @@ async function sendStudio(){
   const proj=Object.keys(files).length?"\n\nAKTUELLES PROJEKT:\n"+Object.entries(files).map(([n,c])=>`FILE: ${n}\n\`\`\`\n${c.slice(0,15000)}\n\`\`\``).join("\n"):"";
   const ctxMsgs=studioMsgs.slice(-6).map(m=>({role:m.role,content:m.content}));
   try{full=await ask([{role:"system",content:STUDIO_SYS+proj},...ctxMsgs],t=>{full=t;const n=Object.keys(parseFiles(t));
-      out.textContent=n.length?"✍️ Schreibe: "+n.join(", ")+" …":"Denke nach …";box.scrollTop=box.scrollHeight})}
+      out.textContent=n.length?"✍️ Schreibe: "+n.join(", ")+" …":"💭 Denkt nach …";box.scrollTop=box.scrollHeight},undefined,undefined,()=>{out.textContent="💭 Denkt nach …"})}
   catch(e){full="⚠️ Fehler: "+e.message}
   out.classList.remove("dots");const nf=parseFiles(full);let reply=full;
   if(Object.keys(nf).length){snapshot("Vor: "+text.slice(0,24));Object.assign(files,nf);active=nf["index.html"]!=null?"index.html":Object.keys(nf)[0];snapshot(text.slice(0,30));refresh();

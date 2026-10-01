@@ -134,7 +134,7 @@
   <section class="view" id="v-compare">
     <div class="pad"><div class="wrap">
       <div class="panel">
-        <textarea id="cpIn" style="width:100%;min-height:80px" placeholder="Eine Frage – mehrere KI-Modelle antworten nebeneinander"></textarea>
+        <div id="cpNote" style="display:none;color:var(--muted);font-size:13px;margin-bottom:8px">ℹ️ Der kostenlose Zugang bietet aktuell nur <b>ein</b> Modell – ein Vergleich lohnt sich erst, wenn mehrere verfügbar sind.</div><textarea id="cpIn" style="width:100%;min-height:80px" placeholder="Eine Frage – mehrere KI-Modelle antworten nebeneinander"></textarea>
         <div class="row"><select class="cpM"></select><select class="cpM"></select><select class="cpM"></select><button class="primary" id="cpGo">Vergleichen</button></div>
       </div>
       <div id="cpGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"></div>
@@ -171,6 +171,7 @@
 <div id="toast"></div>
 
 <script src="js/core.js"></script>
+<script src="js/ai.js"></script>
 <script src="js/files.js"></script>
 <script src="js/chat.js"></script>
 <script src="js/studio.js"></script>

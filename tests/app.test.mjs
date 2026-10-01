@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { launch, newPage, FILE_URL, ROOT } from './helpers.mjs';
+import { launch, newPage, FILE_URL, ROOT, sse } from './helpers.mjs';
 
 let browser;
 before(async () => { browser = await launch(); });
@@ -101,7 +101,7 @@ test('Prompt-Agent: Rückfragen, Prompt erstellen, an Haupt-App senden', async (
   await ctx.route('**/text.pollinations.ai/**', r => {
     if (r.request().url().endsWith('/models')) return r.fulfill({ json: [{ name: 'openai' }] });
     const b = JSON.parse(r.request().postData());
-    if (b.messages[0].content.includes('NUR mit JSON')) return r.fulfill({ json: { choices: [{ message: { content: '{"questions":["Welche Stadt?"]}' } }] } });
+    if (b.messages[0].content.includes('NUR mit JSON')) return r.fulfill({ status: 200, contentType: 'text/event-stream', body: sse('{"questions":["Welche Stadt?"]}') });
     r.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: ' + JSON.stringify({ choices: [{ delta: { content: 'FERTIGER PROMPT' } }] }) + '\n\ndata: [DONE]\n\n' });
   });
   await p.goto(FILE_URL);
@@ -121,7 +121,7 @@ test('Prompt-Agent: Bilder und Dateien anhängen (auch ohne Text), Chips, Entfer
   await ctx.route('**/text.pollinations.ai/**', r => {
     if (r.request().url().endsWith('/models')) return r.fulfill({ json: [{ name: 'openai' }] });
     const b = JSON.parse(r.request().postData()); reqs.push(b);
-    if (b.messages[0].content.includes('NUR mit JSON')) return r.fulfill({ json: { choices: [{ message: { content: '{"questions":["Welche Farbe?"]}' } }] } });
+    if (b.messages[0].content.includes('NUR mit JSON')) return r.fulfill({ status: 200, contentType: 'text/event-stream', body: sse('{"questions":["Welche Farbe?"]}') });
     r.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: ' + JSON.stringify({ choices: [{ delta: { content: 'PROMPT AUS ANHANG' } }] }) + '\n\ndata: [DONE]\n\n' });
   });
   await p.goto('file://' + ROOT + '/prompt.html');

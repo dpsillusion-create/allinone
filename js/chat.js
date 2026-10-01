@@ -22,7 +22,7 @@ $("#web").onclick=()=>{webOn=!webOn;$("#web").classList.toggle("on",webOn);toast
 async function addFiles(list){
   for(const f of list){try{
     if(/\.pdf$/i.test(f.name)||f.type==="application/pdf")toast("PDF wird gelesen …");
-    atts.push(await readAttachment(f));
+    const a=await readAttachment(f);atts.push(a);if(a.img&&noVision())toast("⚠️ Das aktuelle Modell kann keine Bilder sehen – das Bild wird nicht ausgewertet.");
   }catch{toast("Konnte "+f.name+" nicht lesen")}}
   drawAtts()}
 document.addEventListener("paste",e=>{const f=[...(e.clipboardData?.files||[])];if(f.length&&$("#v-chat").classList.contains("on")){e.preventDefault();addFiles(f)}});
@@ -34,7 +34,10 @@ async function wikiSearch(q){
     const r=await fetch(`https://${l}.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=3&prop=extracts|info&exintro=1&explaintext=1&exchars=900&inprop=url&format=json&origin=*`);
     const p=Object.values((await r.json()).query?.pages||{}).sort((a,b)=>a.index-b.index);p.forEach(x=>res.push({title:x.title+" ("+l+".wikipedia)",url:x.fullurl,text:x.extract||""}))}catch{}}));
   return res.slice(0,5)}
-const toApi=(m,keepImg)=>m.imgs&&keepImg?{role:m.role,content:[{type:"text",text:m.content},...m.imgs.map(u=>({type:"image_url",image_url:{url:u}}))]}:{role:m.role,content:m.content};
+const noVision=()=>{const i=modelInfo(S.model);return!!i&&i.vision===false}; // Modell kann laut Dienst keine Bilder sehen
+const NOVIS_NOTE="\n\n[Hinweis: Der Nutzer hat ein Bild angehängt, das du mit diesem Modell nicht sehen kannst. Sag ihm das ehrlich, statt den Bildinhalt zu raten.]";
+const toApi=(m,keepImg)=>m.imgs&&noVision()?{role:m.role,content:m.content+NOVIS_NOTE}
+  :m.imgs&&keepImg?{role:m.role,content:[{type:"text",text:m.content},...m.imgs.map(u=>({type:"image_url",image_url:{url:u}}))]}:{role:m.role,content:m.content};
 async function sendChat(text){
   const inp=$("#inp");text=(text??inp.value).trim();if(!text&&!atts.length)return;inp.value="";inp.style.height="";
   const files=atts;atts=[];drawAtts();text=text||(files.some(f=>f.img)?"Beschreibe dieses Bild.":"Fasse den Inhalt zusammen.");
@@ -50,7 +53,7 @@ async function sendChat(text){
       if(srcs.length){const q="Nutze diese Web-Quellen und zitiere sie als [1], [2] …, wenn sie relevant sind:\n"+srcs.map((x,i)=>`[${i+1}] ${x.title}: ${x.text}`).join("\n\n")+"\n\nFrage: "+content;
         hist[hist.length-1]=toApi({...um,content:q},true)}
       out.textContent=""}
-    full=await ask([{role:"system",content:S.sys},...hist],t=>{full=t;render(out,t);box.scrollTop=box.scrollHeight},ctrl.signal)}
+    full=await ask([{role:"system",content:S.sys},...hist],t=>{full=t;render(out,t);box.scrollTop=box.scrollHeight},ctrl.signal,undefined,()=>{if(!full)out.textContent="💭 Denkt nach …"})}
   catch(e){if(e.name!=="AbortError"){full=full||"⚠️ Fehler: "+e.message+" – bitte nochmal versuchen."}}
   if(full&&srcs.length)full+="\n\n**Quellen:**\n"+srcs.map((x,i)=>`${i+1}. [${x.title}](${x.url})`).join("\n");
   out.classList.remove("dots");if(full){render(out,full);c.msgs.push({role:"assistant",content:full});if(S.speak)speak(full)}
