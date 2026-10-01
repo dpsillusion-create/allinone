@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Prompt-Agent</title><script src="store.js"></script><link rel="icon" href="icon.svg">
+<title>Prompt-Agent</title><script src="store.js"></script><script src="js/files.js"></script><link rel="icon" href="icon.svg">
 <style>
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff}
 @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
@@ -14,6 +14,7 @@ textarea{width:100%;resize:vertical}textarea:focus,input:focus{border-color:var(
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 label{font-size:12px;color:var(--muted)}.q{margin-top:8px}.q input{width:100%;margin-top:3px}
 #out{min-height:150px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace}
+.att{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:2px 10px;font-size:12px;display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0}.att img{height:22px;border-radius:4px}.att b{cursor:pointer;font-weight:400;color:var(--muted)}.drop{outline:2px dashed var(--accent)}
 .st{color:var(--muted);font-size:12px;margin-top:6px}#hist button{display:block;width:100%;text-align:left;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
 </style></head><body>
 <h1>🪄 Prompt-Agent</h1>
@@ -29,10 +30,11 @@ label{font-size:12px;color:var(--muted)}.q{margin-top:8px}.q input{width:100%;ma
       <option value="research">🔎 Recherche / Analyse</option>
       <option value="media">🎬 Video / 🎵 Musik</option>
     </select>
+    <button id="attach" title="Bilder, PDFs oder Textdateien als Vorlage/Kontext anhängen">📎 Anhang</button><input type="file" id="file" multiple hidden accept="image/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yml,.yaml,.log,.java,.c,.cpp,.go,.rs,.sql">
     <label><input type="checkbox" id="ask" checked style="padding:0"> Rückfragen stellen</label>
     <button class="primary" id="go">Prompt erstellen</button>
   </div>
-  <div id="qs"></div><div class="st" id="st"></div>
+  <div id="atts"></div><div id="qs"></div><div class="st" id="st"></div>
 </div>
 <div class="box" id="res" style="display:none">
   <label>Dein fertiger Prompt (editierbar)</label>
@@ -73,12 +75,26 @@ function drawHist(){$("#hist").innerHTML=hist.length?hist.map((h,i)=>`<button da
 $("#hist").onclick=e=>{const b=e.target.closest("[data-i]");if(!b)return;const h=hist[+b.dataset.i];$("#goal").value=h.goal;$("#target").value=h.target;show(h.prompt)};
 function show(t){$("#res").style.display="";$("#out").value=t}
 const st=t=>$("#st").textContent=t||"";
-let pending=null;
+let pending=null,atts=[];
+const ATT_HINT=" Der Nutzer hat Dateien und/oder Bilder angehängt. Werte sie aus und baue die relevanten Details (Inhalt, Struktur, Stil, Farben, Komposition, Daten) konkret in den Prompt ein. Bei Referenzbildern beschreibe den Stil genau, damit der Prompt auch ohne das Bild funktioniert.";
+const sysFor=base=>base+(atts.length?ATT_HINT:"");
+function userContent(text){
+  const docs=atts.filter(a=>a.text!=null).map(a=>`\n\n[Datei: ${a.name}]\n${a.text.slice(0,15000)}${a.text.length>15000?"\n…(gekürzt)":""}`).join(""),imgs=atts.filter(a=>a.img);
+  return imgs.length?[{type:"text",text:text+docs},...imgs.map(a=>({type:"image_url",image_url:{url:a.img}}))]:text+docs}
+const drawAtts=()=>{$("#atts").innerHTML=atts.map((a,i)=>`<span class="att">${a.img?`<img src="${a.img}">`:"📄"} ${esc(a.name)}<b data-rm="${i}">✕</b></span>`).join("")};
+$("#atts").onclick=e=>{const r=e.target.closest("[data-rm]");if(r){atts.splice(+r.dataset.rm,1);drawAtts()}};
+async function addFiles(list){for(const f of list){try{st("Lese "+f.name+" …");atts.push(await readAttachment(f))}catch{st("⚠️ Konnte "+f.name+" nicht lesen")}}drawAtts();st("")}
+$("#attach").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{addFiles([...e.target.files]);e.target.value=""};
+document.addEventListener("paste",e=>{const f=[...(e.clipboardData?.files||[])];if(f.length){e.preventDefault();addFiles(f)}});
+document.addEventListener("dragover",e=>{e.preventDefault();document.body.classList.add("drop")});
+document.addEventListener("dragleave",e=>{if(!e.relatedTarget)document.body.classList.remove("drop")});
+document.addEventListener("drop",e=>{e.preventDefault();document.body.classList.remove("drop");addFiles([...e.dataTransfer.files])});
 async function run(){
-  const goal=$("#goal").value.trim();if(!goal)return;const target=$("#target").value;$("#go").disabled=true;$("#qs").innerHTML="";st("Der Agent denkt nach …");
+  const goal=$("#goal").value.trim()||(atts.length?"Erstelle auf Basis der Anhänge einen passenden Prompt.":"");if(!goal)return;const target=$("#target").value;$("#go").disabled=true;$("#qs").innerHTML="";st("Der Agent denkt nach …");
   try{
     if($("#ask").checked&&!pending){
-      const raw=await ask(SYS+'Prüfe, ob für einen wirklich guten Prompt wichtige Infos fehlen. Antworte NUR mit JSON: {"questions":["…"]} mit 0–3 kurzen, konkreten Rückfragen (leer, wenn genug Infos). '+HINT[target],goal);
+      const raw=await ask(sysFor(SYS)+'Prüfe, ob für einen wirklich guten Prompt wichtige Infos fehlen. Antworte NUR mit JSON: {"questions":["…"]} mit 0–3 kurzen, konkreten Rückfragen (leer, wenn genug Infos). '+HINT[target],userContent(goal));
       let qs=[];try{qs=JSON.parse(raw.match(/\{[\s\S]*\}/)[0]).questions||[]}catch{}
       if(qs.length){pending={goal,target,qs};$("#qs").innerHTML=qs.slice(0,3).map((q,i)=>`<div class="q"><label>${esc(q)}</label><input data-q="${i}" placeholder="(optional)"></div>`).join("")+'<div class="row"><button class="primary" id="qgo">Weiter</button><button id="qskip">Überspringen</button></div>';
         $("#qgo").onclick=()=>finish(true);$("#qskip").onclick=()=>finish(false);st("Ein paar Rückfragen für ein besseres Ergebnis:");return}}
@@ -89,9 +105,9 @@ async function finish(useAns){
   $("#qs").innerHTML="";try{await gen(p.goal,p.target,ans)}catch(e){st("⚠️ "+e.message)}}
 async function gen(goal,target,ans){
   st("Erstelle Prompt …");show("");
-  const t=await ask(SYS+HINT[target]+" Gib AUSSCHLIESSLICH den fertigen Prompt aus – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen drumherum. Platzhalter in [eckigen Klammern], wo der Nutzer noch etwas einsetzen muss.",
-    "Wunsch des Nutzers:\n"+goal+(ans?"\n\nZusätzliche Angaben:\n"+ans:""),x=>$("#out").value=x);
-  hist.unshift({goal,target,prompt:t});hist=hist.slice(0,15);LS.set("aioPrompts",hist);drawHist();st("Fertig ✔")}
+  const t=await ask(sysFor(SYS)+HINT[target]+" Gib AUSSCHLIESSLICH den fertigen Prompt aus – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen drumherum. Platzhalter in [eckigen Klammern], wo der Nutzer noch etwas einsetzen muss.",
+    userContent("Wunsch des Nutzers:\n"+goal+(ans?"\n\nZusätzliche Angaben:\n"+ans:"")),x=>$("#out").value=x);
+  hist.unshift({goal,target,prompt:t});hist=hist.slice(0,15);LS.set("aioPrompts",hist);drawHist();st(atts.length?"Fertig ✔ – Bilder/Dateien musst du beim Ziel-Tool selbst wieder anhängen.":"Fertig ✔")}
 async function refine(m){
   const cur=$("#out").value;if(!cur)return;st("Passe an …");
   try{await ask(SYS+HINT[$("#target").value]+" Überarbeite den gegebenen Prompt gemäß Anweisung. Gib AUSSCHLIESSLICH den neuen Prompt aus.","Aktueller Prompt:\n"+cur+"\n\nAnweisung: "+m,x=>$("#out").value=x);st("Fertig ✔")}catch(e){st("⚠️ "+e.message)}}

@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { launch, newPage, FILE_URL } from './helpers.mjs';
+import { launch, newPage, FILE_URL, ROOT } from './helpers.mjs';
 
 let browser;
 before(async () => { browser = await launch(); });
@@ -112,6 +112,32 @@ test('Prompt-Agent: Rückfragen, Prompt erstellen, an Haupt-App senden', async (
   await pop.waitForFunction(() => document.querySelector('#out').value === 'FERTIGER PROMPT');
   await pop.click('#send');
   await p.waitForFunction(() => document.querySelector('#sinp').value === 'FERTIGER PROMPT');
+  assert.deepEqual(errs, []);
+});
+
+test('Prompt-Agent: Bilder und Dateien anhängen (auch ohne Text), Chips, Entfernen, Hinweis', async () => {
+  const ctx = await browser.newContext(); const p = await ctx.newPage(); const errs = []; const reqs = [];
+  p.on('pageerror', e => errs.push(e.message));
+  await ctx.route('**/text.pollinations.ai/**', r => {
+    if (r.request().url().endsWith('/models')) return r.fulfill({ json: [{ name: 'openai' }] });
+    const b = JSON.parse(r.request().postData()); reqs.push(b);
+    if (b.messages[0].content.includes('NUR mit JSON')) return r.fulfill({ json: { choices: [{ message: { content: '{"questions":["Welche Farbe?"]}' } }] } });
+    r.fulfill({ status: 200, contentType: 'text/event-stream', body: 'data: ' + JSON.stringify({ choices: [{ delta: { content: 'PROMPT AUS ANHANG' } }] }) + '\n\ndata: [DONE]\n\n' });
+  });
+  await p.goto('file://' + ROOT + '/prompt.html');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await p.setInputFiles('#file', [{ name: 'brief.txt', mimeType: 'text/plain', buffer: Buffer.from('KUNDENWUNSCH-XYZ') }, { name: 'ref.png', mimeType: 'image/png', buffer: png }, { name: 'weg.txt', mimeType: 'text/plain', buffer: Buffer.from('LÖSCHEN') }]);
+  await p.waitForSelector('.att img');
+  assert.equal(await p.locator('.att').count(), 3);
+  await p.click('[data-rm="2"]');                              // weg.txt wieder entfernen
+  assert.equal(await p.locator('.att').count(), 2);
+  await p.selectOption('#target', 'image'); await p.click('#go');   // Ziel ohne Text: nur Anhänge
+  await p.waitForSelector('[data-q]'); await p.click('#qskip');
+  await p.waitForFunction(() => document.querySelector('#out').value === 'PROMPT AUS ANHANG');
+  const asked = JSON.stringify(reqs[0].messages.at(-1).content), gen = JSON.stringify(reqs.at(-1).messages.at(-1).content);
+  for (const s of [asked, gen]) { assert.match(s, /KUNDENWUNSCH-XYZ/); assert.match(s, /image_url/); assert.doesNotMatch(s, /LÖSCHEN/); }
+  assert.match(reqs.at(-1).messages[0].content, /angehängt/);
+  assert.match(await p.innerText('#st'), /selbst wieder anhängen/);
   assert.deepEqual(errs, []);
 });
 
