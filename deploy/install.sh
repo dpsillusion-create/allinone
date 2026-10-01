@@ -12,6 +12,7 @@ DEST=/opt/allinone
 DATA=/var/lib/allinone
 mkdir -p "$DEST" "$DATA"
 cp "$SRC"/server.py "$SRC"/store.js "$SRC"/index.html "$SRC"/prompt.html "$SRC"/sw.js "$SRC"/manifest.webmanifest "$SRC"/icon.svg "$DEST"/
+rm -rf "$DEST/js" "$DEST/css"; cp -r "$SRC/js" "$SRC/css" "$DEST"/
 chown -R nobody "$DATA"
 if [ -n "${AIO_PASSWORD:-}" ]; then
   umask 077; printf 'AIO_PASSWORD=%s\n' "$AIO_PASSWORD" > /etc/allinone.env

@@ -17,3 +17,21 @@ Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-
 
 KI-Engine: [Pollinations.ai](https://pollinations.ai) (kostenlos). Start: `index.html` im Browser öffnen oder per GitHub Pages hosten.
 Daten: mit `server.py` (siehe DEPLOY.md) zentral auf deinem Server, auf allen Geräten gleich; ohne Server lokal im Browser. Backup-Download/-Upload unter ⚙️.
+
+## Entwicklung
+
+```
+index.html          Oberfläche (Markup)
+css/app.css         Styles
+js/                 App-Code, in dieser Reihenfolge geladen: core → chat → studio → images → write → voice → settings → tools → init
+store.js            Speicher-Schicht (Server, Profile) – läuft vor der App
+server.py           Server (statische Dateien, Profile, Datenspeicher)
+prompt.html         Prompt-Agent (eigenes Fenster)
+sw.js               Service Worker (Offline/PWA)
+tests/              Automatische Tests (Playwright + node:test, KI und Netz werden gemockt)
+deploy/             Installationshilfen (systemd, Tailscale, Caddy)
+```
+
+Kein Build-Schritt nötig: Dateien ändern und die Seite neu laden. Tests: `npm install && npx playwright-core install chromium && npm test`
+(oder mit `CHROMIUM_PATH=/pfad/zu/chromium npm test`). Neue Skripte in `js/` müssen in `index.html`, `sw.js` eingetragen werden;
+Dateien im Wurzelordner zusätzlich in `Dockerfile` und `deploy/install.sh`.

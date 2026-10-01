@@ -1,0 +1,14 @@
+{
+  "name": "allinone-ki",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Kostenlose All-in-One-KI (Web-App + kleiner Server)",
+  "scripts": {
+    "test": "node --test --test-concurrency=2 \"tests/*.test.mjs\"",
+    "start": "python3 server.py"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}

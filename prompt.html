@@ -53,8 +53,8 @@ const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{retur
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 let model="openai";try{model=(LS.get("aio",{}).model)||"openai"}catch{}
 async function ask(system,user,onTok){
-  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,stream:!!onTok,messages:[{role:"system",content:system},{role:"user",content:user}]})});
-  if(!r.ok)throw new Error("Server: "+r.status);
+  let r;try{r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,stream:!!onTok,messages:[{role:"system",content:system},{role:"user",content:user}]})})}catch(e){throw new Error("Keine Verbindung zum KI-Dienst. Prüfe deine Internetverbindung.")}
+  if(!r.ok)throw new Error(r.status===429?"Das Gratis-Kontingent ist gerade ausgelastet – bitte kurz warten und erneut versuchen.":r.status>=500?"Der KI-Dienst ist gerade nicht erreichbar.":"Anfrage abgelehnt (Status "+r.status+").");
   if(!onTok)return(await r.json()).choices[0].message.content;
   const rd=r.body.getReader(),dec=new TextDecoder();let buf="",full="";
   for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split("\n");buf=ls.pop();

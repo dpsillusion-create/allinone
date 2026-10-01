@@ -21,6 +21,8 @@ STATIC = {  # nur diese Dateien werden ausgeliefert
     "store.js": "application/javascript; charset=utf-8", "sw.js": "application/javascript; charset=utf-8",
     "manifest.webmanifest": "application/manifest+json", "icon.svg": "image/svg+xml",
 }
+ASSET_RE = re.compile(r"^(js|css)/[A-Za-z0-9_.-]+\.(js|css)$")  # App-Code in den Unterordnern js/ und css/
+ASSET_TYPES = {"js": "application/javascript; charset=utf-8", "css": "text/css; charset=utf-8"}
 PUBLIC = {"manifest.webmanifest", "icon.svg", "sw.js"}  # Browser holt diese ohne Anmeldedaten
 lock = threading.Lock()
 
@@ -163,6 +165,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404, {"error": "nicht gefunden"})
         if name in STATIC and self.command in ("GET", "HEAD"):
             return self.send(200, (ROOT / name).read_bytes(), STATIC[name])
+        if ASSET_RE.match(name) and self.command in ("GET", "HEAD") and (ROOT / name).is_file():
+            return self.send(200, (ROOT / name).read_bytes(), ASSET_TYPES[name.rsplit(".", 1)[1]])
         return self.send(404, {"error": "nicht gefunden"})
 
     do_GET = do_HEAD = do_PUT = do_DELETE = do_POST = route
