@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prompt-Agent</title><link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff}
+@media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,sans-serif;padding:14px;max-width:760px;margin:auto}
+h1{font-size:16px;margin:0 0 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+button,select,textarea,input{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;outline:none}
+button{cursor:pointer}button:hover{border-color:var(--accent)}button:disabled{opacity:.5}
+button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;color:#fff;font-weight:600}
+textarea{width:100%;resize:vertical}textarea:focus,input:focus{border-color:var(--accent)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+label{font-size:12px;color:var(--muted)}.q{margin-top:8px}.q input{width:100%;margin-top:3px}
+#out{min-height:150px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace}
+.st{color:var(--muted);font-size:12px;margin-top:6px}#hist button{display:block;width:100%;text-align:left;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+</style></head><body>
+<h1>🪄 Prompt-Agent</h1>
+<div class="box">
+  <label>Was möchtest du erreichen?</label>
+  <textarea id="goal" rows="3" placeholder="z. B. „Ich will eine Webseite für mein Café“ oder „Ein Logo für meine Firma“"></textarea>
+  <div class="row">
+    <select id="target">
+      <option value="chat">💬 Chat-KI (ChatGPT, Claude, Gemini …)</option>
+      <option value="code">🧩 Code / Web-App bauen</option>
+      <option value="image">🎨 Bild (Midjourney, Flux, DALL·E …)</option>
+      <option value="text">✍️ Text schreiben</option>
+      <option value="research">🔎 Recherche / Analyse</option>
+      <option value="media">🎬 Video / 🎵 Musik</option>
+    </select>
+    <label><input type="checkbox" id="ask" checked style="padding:0"> Rückfragen stellen</label>
+    <button class="primary" id="go">Prompt erstellen</button>
+  </div>
+  <div id="qs"></div><div class="st" id="st"></div>
+</div>
+<div class="box" id="res" style="display:none">
+  <label>Dein fertiger Prompt (editierbar)</label>
+  <textarea id="out" rows="9"></textarea>
+  <div class="row">
+    <button id="copy" class="primary">Kopieren</button>
+    <button id="send">An Haupt-App senden ↗</button>
+    <button data-m="Mach den Prompt deutlich kürzer und präziser.">Kürzer</button>
+    <button data-m="Mach den Prompt ausführlicher mit mehr Kontext, Beispielen und klaren Qualitätskriterien.">Detaillierter</button>
+  </div>
+  <div class="row"><input id="fb" placeholder="Änderungswunsch, z. B. „formeller“, „für Anfänger“ …" style="flex:1"><button id="fbGo">Anpassen</button></div>
+</div>
+<div class="box"><label>Verlauf</label><div id="hist"></div></div>
+<script>
+"use strict";
+const $=s=>document.querySelector(s),API="https://text.pollinations.ai/openai";
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let model="openai";try{model=(LS.get("aio",{}).model)||"openai"}catch{}
+async function ask(system,user,onTok){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model,stream:!!onTok,messages:[{role:"system",content:system},{role:"user",content:user}]})});
+  if(!r.ok)throw new Error("Server: "+r.status);
+  if(!onTok)return(await r.json()).choices[0].message.content;
+  const rd=r.body.getReader(),dec=new TextDecoder();let buf="",full="";
+  for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const ls=buf.split("\n");buf=ls.pop();
+    for(const l of ls){if(!l.startsWith("data:"))continue;const d=l.slice(5).trim();if(d==="[DONE]")continue;try{const t=JSON.parse(d).choices?.[0]?.delta?.content;if(t){full+=t;onTok(full)}}catch{}}}
+  return full}
+const HINT={
+ chat:"Zielsystem: Chat-KI. Struktur: Rolle, Kontext, Aufgabe, Schritte/Vorgehen, Format der Antwort, Einschränkungen. Antwortsprache wie die Eingabe.",
+ code:"Zielsystem: KI zum Programmieren/Bauen von Apps. Nenne Technologie, Features (Liste), Design/Stil, Verhalten bei Fehlern, Dateistruktur und fordere vollständigen, lauffähigen Code in einer Datei.",
+ image:"Zielsystem: Bildgenerator. Schreibe den Prompt auf ENGLISCH als dichte Beschreibung: Motiv, Stil/Medium, Komposition, Licht, Farben, Stimmung, Kameradetails, Qualitätswörter. Max. ca. 80 Wörter, optional Seitenverhältnis am Ende.",
+ text:"Zielsystem: KI zum Schreiben. Lege Zielgruppe, Ton, Länge, Struktur, Stil und Beispiele/Don'ts fest.",
+ research:"Zielsystem: Recherche/Analyse. Fordere Quellen, Gegenargumente, Unsicherheiten, strukturierte Tabelle/Zusammenfassung und Fazit.",
+ media:"Zielsystem: Video-/Musik-KI. Szenen/Stimmung, Stil, Tempo, Instrumente/Kamerabewegung, Dauer. Bei Musik: Genre, BPM, Instrumente, Gesangsstil. Auf ENGLISCH."};
+const SYS="Du bist ein erstklassiger Prompt-Engineer. Du verwandelst vage Wünsche in präzise, sofort nutzbare Prompts. ";
+let hist=LS.get("aioPrompts",[]);
+function drawHist(){$("#hist").innerHTML=hist.length?hist.map((h,i)=>`<button data-i="${i}">${esc(h.goal.slice(0,60))}</button>`).join(""):'<span class="st">Noch nichts erstellt.</span>'}
+$("#hist").onclick=e=>{const b=e.target.closest("[data-i]");if(!b)return;const h=hist[+b.dataset.i];$("#goal").value=h.goal;$("#target").value=h.target;show(h.prompt)};
+function show(t){$("#res").style.display="";$("#out").value=t}
+const st=t=>$("#st").textContent=t||"";
+let pending=null;
+async function run(){
+  const goal=$("#goal").value.trim();if(!goal)return;const target=$("#target").value;$("#go").disabled=true;$("#qs").innerHTML="";st("Der Agent denkt nach …");
+  try{
+    if($("#ask").checked&&!pending){
+      const raw=await ask(SYS+'Prüfe, ob für einen wirklich guten Prompt wichtige Infos fehlen. Antworte NUR mit JSON: {"questions":["…"]} mit 0–3 kurzen, konkreten Rückfragen (leer, wenn genug Infos). '+HINT[target],goal);
+      let qs=[];try{qs=JSON.parse(raw.match(/\{[\s\S]*\}/)[0]).questions||[]}catch{}
+      if(qs.length){pending={goal,target,qs};$("#qs").innerHTML=qs.slice(0,3).map((q,i)=>`<div class="q"><label>${esc(q)}</label><input data-q="${i}" placeholder="(optional)"></div>`).join("")+'<div class="row"><button class="primary" id="qgo">Weiter</button><button id="qskip">Überspringen</button></div>';
+        $("#qgo").onclick=()=>finish(true);$("#qskip").onclick=()=>finish(false);st("Ein paar Rückfragen für ein besseres Ergebnis:");return}}
+    await gen(goal,target,"")
+  }catch(e){st("⚠️ "+e.message)}finally{$("#go").disabled=false}}
+async function finish(useAns){
+  const p=pending;pending=null;const ans=useAns?[...document.querySelectorAll("[data-q]")].map(i=>i.value.trim()?`- ${p.qs[+i.dataset.q]} → ${i.value.trim()}`:"").filter(Boolean).join("\n"):"";
+  $("#qs").innerHTML="";try{await gen(p.goal,p.target,ans)}catch(e){st("⚠️ "+e.message)}}
+async function gen(goal,target,ans){
+  st("Erstelle Prompt …");show("");
+  const t=await ask(SYS+HINT[target]+" Gib AUSSCHLIESSLICH den fertigen Prompt aus – ohne Einleitung, ohne Erklärung, ohne Anführungszeichen drumherum. Platzhalter in [eckigen Klammern], wo der Nutzer noch etwas einsetzen muss.",
+    "Wunsch des Nutzers:\n"+goal+(ans?"\n\nZusätzliche Angaben:\n"+ans:""),x=>$("#out").value=x);
+  hist.unshift({goal,target,prompt:t});hist=hist.slice(0,15);LS.set("aioPrompts",hist);drawHist();st("Fertig ✔")}
+async function refine(m){
+  const cur=$("#out").value;if(!cur)return;st("Passe an …");
+  try{await ask(SYS+HINT[$("#target").value]+" Überarbeite den gegebenen Prompt gemäß Anweisung. Gib AUSSCHLIESSLICH den neuen Prompt aus.","Aktueller Prompt:\n"+cur+"\n\nAnweisung: "+m,x=>$("#out").value=x);st("Fertig ✔")}catch(e){st("⚠️ "+e.message)}}
+$("#go").onclick=()=>{pending=null;run()};
+$("#goal").addEventListener("keydown",e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){pending=null;run()}});
+$("#copy").onclick=()=>navigator.clipboard.writeText($("#out").value).then(()=>st("Kopiert ✔"));
+document.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>refine(b.dataset.m));
+$("#fbGo").onclick=()=>{const v=$("#fb").value.trim();if(v){refine(v);$("#fb").value=""}};
+$("#send").onclick=()=>{const msg={type:"aio-prompt",text:$("#out").value,target:$("#target").value};
+  if(window.opener&&!window.opener.closed){window.opener.postMessage(msg,location.protocol==="file:"?"*":location.origin);window.opener.focus();st("An Haupt-App gesendet ✔")}else{navigator.clipboard.writeText(msg.text);st("Haupt-App nicht offen – Prompt kopiert")}};
+drawHist();
+</script></body></html>

@@ -108,6 +108,7 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <button class="nav" data-v="images">🎨 Bilder</button>
   <button class="nav" data-v="write">✍️ Schreibwerkstatt</button>
   <button class="nav" data-v="voice">🎙️ Sprache</button>
+  <button class="nav" id="openPA">🪄 Prompt-Agent ↗</button>
   <div id="hist"></div>
   <button id="newChat">＋ Neuer Chat</button>
 </nav>
@@ -223,7 +224,10 @@ const STUDIO_SYS="Du bist ein Webentwickler. Antworte kurz und liefere IMMER ein
 /* ---------- Navigation ---------- */
 const titles={chat:"Chat",studio:"Studio – Live-Vorschau",images:"Bildgenerator",write:"Schreibwerkstatt",voice:"Sprache"};
 function show(v){$$(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));$$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.v===v));$("#title").textContent=titles[v];$("#side").classList.remove("open")}
-$$(".nav").forEach(b=>b.onclick=()=>show(b.dataset.v));
+$$(".nav[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
+$("#openPA").onclick=()=>window.open("prompt.html","aioPrompt","width=480,height=760,resizable=yes");
+addEventListener("message",e=>{if((location.protocol!=="file:"&&e.origin!==location.origin)||e.data?.type!=="aio-prompt")return;const t=e.data.text||"";
+  if(e.data.target==="image"){show("images");$("#ip").value=t}else if(e.data.target==="code"){show("studio");$("#sinp").value=t;$("#sinp").focus()}else{show("chat");$("#inp").value=t;$("#inp").focus()}toast("Prompt übernommen ✔")});
 $("#burger").onclick=()=>$("#side").classList.toggle("open");
 
 /* ---------- Markdown ---------- */
