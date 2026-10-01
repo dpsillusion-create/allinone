@@ -66,22 +66,36 @@ const freePort = () => new Promise((res, rej) => {
   const s = createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); s.on('error', rej);
 });
 
-/** server.py mit frischem Datenordner starten. */
-export async function startServer({ password = '', setup } = {}) {
+/** server.py mit frischem Datenordner starten. adminPassword=null -> Server erzeugt ein Start-Passwort (INITIAL_ADMIN_PASSWORD.txt). */
+export async function startServer({ adminPassword = 'Admin-Test-123', setup } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'aio-data-'));
   if (setup) setup(dir);
   const port = await freePort();
-  const proc = spawn('python3', [join(ROOT, 'server.py')], {
-    env: { ...process.env, AIO_DATA: dir, AIO_PORT: String(port), AIO_BIND: '127.0.0.1', AIO_PASSWORD: password, PYTHONDONTWRITEBYTECODE: '1' },
-    stdio: 'ignore',
-  });
+  const env = { ...process.env, AIO_DATA: dir, AIO_PORT: String(port), AIO_BIND: '127.0.0.1', PYTHONDONTWRITEBYTECODE: '1' };
+  delete env.AIO_ADMIN_PASSWORD;
+  if (adminPassword) env.AIO_ADMIN_PASSWORD = adminPassword;
+  const proc = spawn('python3', [join(ROOT, 'server.py')], { env, stdio: 'ignore' });
   const url = `http://127.0.0.1:${port}`;
-  const auth = password ? { Authorization: 'Basic ' + Buffer.from('x:' + password).toString('base64') } : {};
-  for (let i = 0; i < 50; i++) {
-    try { if ((await fetch(url + '/api/profiles', { headers: auth })).status < 500) break; } catch {}
+  for (let i = 0; i < 60; i++) {
+    try { if ((await fetch(url + '/login.html')).status === 200) break; } catch {}
     await new Promise(r => setTimeout(r, 100));
   }
-  return { url, dir, auth, stop: () => { proc.kill(); rmSync(dir, { recursive: true, force: true }); } };
+  return { url, dir, env, adminPassword, stop: () => { proc.kill(); rmSync(dir, { recursive: true, force: true }); } };
 }
 
 export const J = { 'Content-Type': 'application/json', 'X-AIO': '1' };
+
+/** Anmelden -> { status, cookie, data } (cookie = "aio_session=…" für weitere Aufrufe) */
+export async function login(srv, name, password, ip) {
+  const r = await fetch(srv.url + '/api/login', { method: 'POST', headers: { ...J, ...(ip ? { 'X-Forwarded-For': ip } : {}) }, body: JSON.stringify({ name, password }) });
+  const sc = r.headers.getSetCookie?.()[0] || '';
+  return { status: r.status, cookie: sc.split(';')[0], setCookie: sc, data: await r.json().catch(() => ({})) };
+}
+
+/** fetch mit Sitzungs-Cookie: api(srv, cookie)('/pfad', { method, body }) -> { status, data } */
+export const api = (srv, cookie) => async (path, opts = {}) => {
+  const r = await fetch(srv.url + path, { redirect: 'manual', ...opts, headers: { ...(opts.method && opts.method !== 'GET' ? J : {}), ...(cookie ? { Cookie: cookie } : {}), ...(opts.headers || {}) },
+    body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body });
+  let data = {}; try { data = await r.clone().json(); } catch {}
+  return { status: r.status, data, headers: r.headers, res: r };
+};

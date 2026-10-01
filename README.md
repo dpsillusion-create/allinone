@@ -13,7 +13,7 @@ Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-
 - ✍️ **Schreibwerkstatt** (E-Mail, Zusammenfassen, Übersetzen, Korrigieren …)
 - 🎙️ **Sprache** (Diktieren & Vorlesen, nutzt Browser-Funktionen)
 
-🖥️ **Eigener Server:** Anleitung für Docker/systemd im Heimnetz, Profile mit PIN und Zugriff von unterwegs über Tailscale in [DEPLOY.md](DEPLOY.md).
+🖥️ **Eigener Server:** Anleitung für Docker/systemd im Heimnetz, Konten mit Login, Admin-Bereich und Zugriff von unterwegs über Tailscale in [DEPLOY.md](DEPLOY.md).
 
 KI-Engine: [Pollinations.ai](https://pollinations.ai) (kostenlos). Start: `index.html` im Browser öffnen oder per GitHub Pages hosten.
 Daten: mit `server.py` (siehe DEPLOY.md) zentral auf deinem Server, auf allen Geräten gleich; ohne Server lokal im Browser. Backup-Download/-Upload unter ⚙️.
@@ -24,8 +24,9 @@ Daten: mit `server.py` (siehe DEPLOY.md) zentral auf deinem Server, auf allen Ge
 index.html          Oberfläche (Markup)
 css/app.css         Styles
 js/                 App-Code, in dieser Reihenfolge geladen: core → files → chat → studio → images → write → voice → settings → tools → init
-store.js            Speicher-Schicht (Server, Profile) – läuft vor der App
-server.py           Server (statische Dateien, Profile, Datenspeicher)
+store.js            Speicher-Schicht (Server, Login) – läuft vor der App
+login.html / account.html / admin.html   Anmeldung, Konto (Name/Passwort ändern), Admin-Bereich
+server.py           Server (Login/Konten/Admin, Datenspeicher, statische Dateien)
 prompt.html         Prompt-Agent (eigenes Fenster)
 sw.js               Service Worker (Offline/PWA)
 tests/              Automatische Tests (Playwright + node:test, KI und Netz werden gemockt)

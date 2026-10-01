@@ -8,7 +8,7 @@ Internet; der Server braucht keine eigene Rechenleistung und keinen API-Key.
 
 Auf dem **Server**. `server.py` liefert die App aus und speichert Chats, Bilder-Verlauf,
 Studio-Projekte und Prompts als JSON-Dateien im Datenordner. Jedes Gerät im Netz sieht denselben Stand.
-Öffnet dasselbe Profil jemand auf einem anderen Gerät, während du etwas änderst, erscheint ein Hinweis
+Öffnet dasselbe Konto jemand auf einem anderen Gerät, während du etwas änderst, erscheint ein Hinweis
 „Neu laden“. Ohne Server (z. B. `index.html` per Doppelklick) bleibt alles lokal im Browser.
 
 Lokale Kopie gewünscht? In der App unter ⚙️ → **Backup herunterladen** (eine JSON-Datei) bzw.
@@ -17,16 +17,30 @@ Lokale Kopie gewünscht? In der App unter ⚙️ → **Backup herunterladen** (e
 Die KI-Anfragen selbst gehen weiterhin direkt vom Browser zu Pollinations.ai – der Server braucht
 keine Rechenleistung und keinen API-Key.
 
-## Profile (mehrere Personen)
+## Konten, Login und Admin-Bereich
 
-Beim ersten Öffnen wählst du ein Profil oder legst ein neues an („Papa“, „Anna“ …). Jedes Profil hat **eigene**
-Chats, Studio-Projekte, Bilder und Prompts; der Server speichert sie getrennt (`data/<profil>/`).
-Optional schützt eine **PIN** (mind. 4 Zeichen) ein Profil. In der Seitenleiste wechselst du mit „👤 Name ⇄“,
-unter ⚙️ kannst du ein Profil samt Daten löschen.
+Die App ist **nur nach Anmeldung** erreichbar. Beim allerersten Start legt der Server das Admin-Konto **`admin`** an:
 
-Die PIN ist ein Schutz vor neugierigen Mitnutzern, **keine Verschlüsselung**: Wer Zugriff auf die Dateien des Servers hat,
-kann die Daten trotzdem lesen. Nach 5 falschen Eingaben gibt es eine kurze Sperre.
-Bestehende Daten einer älteren Version landen automatisch im Profil „Standard“.
+- Das Start-Passwort steht im Log (`docker compose logs allinone` bzw. `sudo journalctl -u allinone`) und in der Datei
+  `INITIAL_ADMIN_PASSWORD.txt` im Datenordner. Alternativ legst du es selbst fest: `AIO_ADMIN_PASSWORD=… docker compose up -d --build`.
+- Beim ersten Login musst du ein **eigenes Passwort** wählen (mind. 8 Zeichen). Danach wird die Start-Datei gelöscht.
+- Danach kannst du unter **⚙️ → Konto verwalten** (Seite `/account.html`) jederzeit **Namen** und **Passwort ändern**.
+  Der Name ist dein Login; zum Ändern von Name oder Passwort musst du dein aktuelles Passwort eingeben.
+  Bei einer Passwortänderung werden alle anderen Geräte abgemeldet.
+- Im **Admin-Bereich** (`/admin.html`, nur für Administratoren) legst du weitere Konten an, benennst sie um, setzt Passwörter
+  (der Nutzer muss es beim ersten Login ändern), vergibst die Admin-Rolle, deaktivierst oder löschst Konten samt Daten.
+  Das letzte Admin-Konto kann nicht gelöscht oder herabgestuft werden.
+- Jedes Konto hat **eigene** Chats, Projekte, Bilder-Verlauf und Prompts, die der Server getrennt speichert.
+- **Admin-Passwort vergessen?** Auf dem Server: `docker compose exec allinone python3 server.py --reset-admin-password`
+  (ohne Docker: `sudo AIO_DATA=/var/lib/allinone python3 /opt/allinone/server.py --reset-admin-password`).
+
+Sicherheit: Passwörter werden nur als Hash gespeichert (PBKDF2-SHA256, 200.000 Runden), Sitzungen laufen über ein
+`HttpOnly`-Cookie (30 Tage), Fehlversuche führen zu kurzen Sperren. Über reines HTTP im Heimnetz ist die Übertragung
+nicht verschlüsselt – für mehr Schutz die HTTPS-Variante oder Tailscale nutzen. Die gespeicherten Chats selbst liegen
+unverschlüsselt im Datenordner; wer Zugriff auf den Server hat, kann sie lesen.
+
+**Update von der Profil-Version:** Gab es genau ein altes Profil, übernimmt das Admin-Konto dessen Daten. Bei mehreren
+werden sie zu Konten **ohne Passwort**; setze im Admin-Bereich ein Passwort, dann können sich die Nutzer anmelden.
 
 ## Variante A: Docker (empfohlen)
 
@@ -45,48 +59,12 @@ Update: `git pull && docker compose up -d --build` (Daten bleiben erhalten).
 
 ```bash
 sudo ./deploy/install.sh                 # Port 8080
-sudo AIO_PASSWORD=meinpasswort ./deploy/install.sh 9000   # mit Passwort, Port 9000
+sudo AIO_ADMIN_PASSWORD=meinpasswort ./deploy/install.sh 9000   # eigenes Start-Passwort, Port 9000
 ```
 
 Daten: `/var/lib/allinone`. Update: Repo aktualisieren und `install.sh` erneut ausführen.
 Deinstallieren: `sudo systemctl disable --now allinone && sudo rm /etc/systemd/system/allinone.service && sudo rm -r /opt/allinone`
 (die Daten in `/var/lib/allinone` bleiben bewusst erhalten).
-
-## Passwortschutz (optional, empfohlen)
-
-Wer im Heimnetz die Adresse kennt, kann sonst alle gespeicherten Chats lesen.
-Mit `AIO_PASSWORD` fragt der Browser einmal nach einem Passwort (Benutzername beliebig):
-
-```bash
-AIO_PASSWORD=meinpasswort docker compose up -d --build
-```
-
-Hinweis: Über HTTP wird das Passwort im Heimnetz unverschlüsselt übertragen (Basic-Auth). Für mehr
-Schutz die HTTPS-Variante unten nutzen.
-
-## Von unterwegs erreichen (Tailscale)
-
-[Tailscale](https://tailscale.com) verbindet deine Geräte über ein privates, verschlüsseltes Netz –
-ohne Portfreigabe im Router. Die App ist dann auch von außerhalb deines Heimnetzes erreichbar,
-aber nur für Geräte, die in **deinem** Tailscale-Konto angemeldet sind.
-
-1. Tailscale auf dem Server installieren und anmelden: `curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up`
-2. Tailscale auf Handy/Laptop installieren und mit demselben Konto anmelden.
-3. Einfachste Variante: Aufruf per Tailscale-IP oder MagicDNS-Name, z. B. `http://100.x.y.z:8080`
-   bzw. `http://meinserver:8080` (Name steht in der Tailscale-App; IP: `tailscale ip -4`).
-4. **Empfohlen – echtes HTTPS** (damit auch Mikrofon und App-Installation funktionieren, ohne eigene Zertifikate):
-   Im [Tailscale-Admin](https://login.tailscale.com/admin/dns) „HTTPS Certificates“ aktivieren und dann auf dem Server
-   `sudo ./deploy/tailscale.sh` ausführen (macht `tailscale serve --bg 8080`).
-   Aufruf: `https://<servername>.<tailnet>.ts.net`.
-
-**Wichtig:** Nutze `tailscale serve` (nur dein Tailnet), **nicht** `tailscale funnel` – Funnel würde die App
-öffentlich im Internet erreichbar machen. Setze zusätzlich ein Passwort (`AIO_PASSWORD`) und PINs für Profile,
-falls du das Tailnet mit anderen teilst.
-
-## Firewall
-
-Falls `ufw` aktiv ist: `sudo ufw allow 8080/tcp` (bzw. `8443/tcp` für HTTPS).
-Schalte **keine** Portfreigabe im Router ein – die App soll nur im Heimnetz erreichbar sein.
 
 ## Wichtig: HTTP vs. HTTPS
 

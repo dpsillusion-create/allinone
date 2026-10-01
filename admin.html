@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MERCYVERSE – Admin</title>
+<link rel="icon" href="/icon.svg"><meta name="theme-color" content="#050a12">
+<link rel="stylesheet" href="/css/theme.css"><link rel="stylesheet" href="/css/pages.css">
+</head><body>
+<div class="wrap wide">
+  <div class="brand"><h1>Mercyverse</h1><small>Admin-Bereich</small></div>
+  <div class="top"><span><a href="/">← Zur App</a> · <a href="/account.html">Mein Konto</a></span><button id="out">Abmelden</button></div>
+
+  <div class="card2"><h2>Konten</h2><p class="sub">Jedes Konto hat eigene Chats, Projekte und Prompts. Von dir gesetzte Passwörter müssen beim ersten Login geändert werden.</p>
+    <div class="scroll"><table><thead><tr><th>Name</th><th>Rolle</th><th>Status</th><th>Letzter Login</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="msg2" id="m0" role="alert"></div></div>
+
+  <form class="card2" id="fNew" autocomplete="off">
+    <h2>Neues Konto</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+      <div><label for="n1">Name</label><input id="n1" required maxlength="32"></div>
+      <div><label for="n2">Start-Passwort</label><input id="n2" type="text" required></div>
+      <div><label for="n3">Rolle</label><select id="n3"><option value="user">Benutzer</option><option value="admin">Administrator</option></select></div>
+    </div>
+    <div class="row2"><button class="primary">Konto anlegen</button><button type="button" id="gen">Passwort erzeugen</button></div>
+    <div class="msg2" id="m1" role="alert"></div>
+  </form>
+</div>
+<script src="/js/acct.js"></script>
+<script>
+"use strict";
+let list=[],meId="";
+const fmt=t=>t?new Date(t*1000).toLocaleString("de-DE",{dateStyle:"short",timeStyle:"short"}):"–";
+async function load(){const r=await api("GET","/api/admin/users");if(r.status!==200){say($("#m0"),r.data.error||"Kein Zugriff");return}
+  list=r.data.users;meId=r.data.me;
+  $("#rows").innerHTML=list.map(u=>`<tr data-id="${u.id}"><td><b>${esc(u.name)}</b>${u.id===meId?' <span class="tag">du</span>':""}</td>
+    <td><span class="tag ${u.role==="admin"?"admin":""}">${u.role==="admin"?"Admin":"Benutzer"}</span></td>
+    <td>${!u.has_password?'<span class="tag warn">kein Passwort</span> ':""}${u.disabled?'<span class="tag off">deaktiviert</span> ':""}${u.must_change&&u.has_password?'<span class="tag warn">muss Passwort ändern</span> ':""}${u.sessions?`<span class="tag">${u.sessions} Gerät${u.sessions>1?"e":""}</span>`:""}</td>
+    <td>${fmt(u.last_login)}</td>
+    <td><div class="acts"><button data-a="name">Umbenennen</button><button data-a="pw">Passwort setzen</button><button data-a="role">${u.role==="admin"?"Zum Benutzer":"Zum Admin"}</button>
+      <button data-a="off">${u.disabled?"Aktivieren":"Deaktivieren"}</button>${u.id===meId?"":'<button class="danger" data-a="del">Löschen</button>'}</div></td></tr>`).join("")}
+$("#rows").onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;const id=b.closest("tr").dataset.id,u=list.find(x=>x.id===id),a=b.dataset.a,m=$("#m0");m.textContent="";
+  let r;
+  if(a==="name"){const v=await modal("Konto umbenennen",[{id:"n",label:"Neuer Name",value:u.name}]);if(!v)return;r=await api("POST","/api/admin/users/"+id,{name:v.n.trim()})}
+  else if(a==="pw"){const v=await modal("Passwort setzen für „"+u.name+"“",[{id:"p",label:"Neues Passwort",value:genPw(),hint:"Mindestens 8 Zeichen. Der Benutzer muss es beim nächsten Login ändern. Gib es ihm persönlich weiter."}]);if(!v)return;r=await api("POST","/api/admin/users/"+id,{password:v.p})}
+  else if(a==="role")r=await api("POST","/api/admin/users/"+id,{role:u.role==="admin"?"user":"admin"});
+  else if(a==="off")r=await api("POST","/api/admin/users/"+id,{disabled:!u.disabled});
+  else if(a==="del"){if(!confirm("Konto „"+u.name+"“ samt ALLEN Daten (Chats, Projekte, Prompts) endgültig löschen?"))return;r=await api("DELETE","/api/admin/users/"+id)}
+  if(r.status===200){say(m,"Gespeichert ✔",true);load()}else say(m,r.data.error||"Fehler")};
+$("#gen").onclick=()=>{$("#n2").value=genPw()};
+$("#fNew").onsubmit=async e=>{e.preventDefault();const r=await api("POST","/api/admin/users",{name:$("#n1").value.trim(),password:$("#n2").value,role:$("#n3").value});
+  if(r.status===200){say($("#m1"),"Konto „"+r.data.user.name+"“ angelegt ✔ – gib Name und Start-Passwort weiter; beim ersten Login wird ein eigenes Passwort verlangt.",true);$("#fNew").reset();load()}else say($("#m1"),r.data.error||"Fehler")};
+$("#out").onclick=logout;
+load();
+</script></body></html>

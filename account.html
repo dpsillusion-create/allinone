@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MERCYVERSE – Mein Konto</title>
+<link rel="icon" href="/icon.svg"><meta name="theme-color" content="#050a12">
+<link rel="stylesheet" href="/css/theme.css"><link rel="stylesheet" href="/css/pages.css">
+</head><body>
+<div class="wrap">
+  <div class="brand"><h1>Mercyverse</h1><small>Mein Konto</small></div>
+  <div class="top"><a href="/">← Zur App</a><span><a href="/admin.html" id="adminLink" style="display:none;margin-right:12px">🛡️ Admin-Bereich</a><button id="out">Abmelden</button></span></div>
+
+  <div class="card2"><h2 id="who">…</h2><p class="sub" id="role"></p></div>
+
+  <form class="card2" id="fName" autocomplete="off">
+    <h2>Namen ändern</h2><p class="sub">Der Benutzername ist dein Login. Zur Sicherheit brauchst du dein Passwort.</p>
+    <label for="nn">Neuer Name</label><input id="nn" required maxlength="32">
+    <label for="np">Passwort</label><input id="np" type="password" autocomplete="current-password" required>
+    <div class="row2"><button class="primary">Namen speichern</button></div><div class="msg2" id="m1" role="alert"></div>
+  </form>
+
+  <form class="card2" id="fPw" autocomplete="off">
+    <h2>Passwort ändern</h2><p class="sub">Mindestens 8 Zeichen. Danach werden alle anderen Geräte abgemeldet.</p>
+    <label for="cp">Aktuelles Passwort</label><input id="cp" type="password" autocomplete="current-password" required>
+    <label for="p1">Neues Passwort</label><input id="p1" type="password" autocomplete="new-password" required>
+    <label for="p2">Neues Passwort wiederholen</label><input id="p2" type="password" autocomplete="new-password" required>
+    <div class="row2"><button class="primary">Passwort speichern</button></div><div class="msg2" id="m2" role="alert"></div>
+  </form>
+</div>
+<script src="/js/acct.js"></script>
+<script>
+"use strict";
+let me=null;
+async function load(){const r=await api("GET","/api/me");if(r.status!==200)return;me=r.data.user;
+  $("#who").textContent="👤 "+me.name;$("#role").textContent=me.role==="admin"?"Administrator":"Benutzer";$("#nn").value=me.name;$("#adminLink").style.display=me.role==="admin"?"":"none"}
+$("#out").onclick=logout;
+$("#fName").onsubmit=async e=>{e.preventDefault();const r=await api("POST","/api/me/name",{name:$("#nn").value,password:$("#np").value});
+  if(r.status===200){say($("#m1"),"Name geändert ✔ – ab jetzt meldest du dich mit „"+r.data.user.name+"“ an.",true);$("#np").value="";load()}else say($("#m1"),r.data.error||"Fehler")};
+$("#fPw").onsubmit=async e=>{e.preventDefault();
+  if($("#p1").value!==$("#p2").value)return say($("#m2"),"Die neuen Passwörter stimmen nicht überein.");
+  const r=await api("POST","/api/me/password",{current:$("#cp").value,new:$("#p1").value});
+  if(r.status===200){say($("#m2"),"Passwort geändert ✔ – andere Geräte wurden abgemeldet.",true);$("#fPw").reset()}else say($("#m2"),r.data.error||"Fehler")};
+load();
+</script></body></html>

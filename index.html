@@ -14,7 +14,7 @@
 <body>
 <nav id="side">
   <h1>Mercyverse<small>All-in-One KI</small></h1>
-  <button class="nav" id="profBtn" style="display:none" title="Profil wechseln"></button>
+  <button class="nav" id="profBtn" style="display:none" title="Mein Konto"></button>
   <button class="nav on" data-v="chat">💬 Chat</button>
   <button class="nav" data-v="studio">🧩 Studio (Live-Vorschau)</button>
   <button class="nav" data-v="images">🎨 Bilder</button>
@@ -45,7 +45,7 @@
         <textarea id="inp" rows="1" placeholder="Frag mich irgendwas… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
         <button class="primary" id="send">Senden</button>
         <button id="stop" style="display:none">■</button>
-      </div><div class="hint">📎 PDFs, Texte & Bilder (auch per Einfügen/Drag&Drop) · 🔎 Websuche · Kostenlos über Pollinations.ai · Keine Anmeldung · <span id="hintStore">Chats bleiben nur in deinem Browser.</span></div></div>
+      </div><div class="hint">📎 PDFs, Texte & Bilder (auch per Einfügen/Drag&Drop) · 🔎 Websuche · Kostenlos über Pollinations.ai · <span id="hintStore">Chats bleiben nur in deinem Browser.</span></div></div>
     </div>
   </section>
 
@@ -165,7 +165,7 @@
   <textarea id="sys" style="width:100%;min-height:90px"></textarea>
   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="speak"> Antworten automatisch vorlesen</label>
   <label>Speicherort</label><div id="storeInfo" style="font-size:13px"></div>
-  <div class="row" id="profRow" style="display:none"><span id="profName"></span><button id="profSwitch">⇄ Profil wechseln</button><button id="profDel">🗑 Profil löschen</button></div>
+  <div class="row" id="profRow" style="display:none"><span id="profName"></span><button id="accBtn">⚙️ Konto verwalten</button><button id="adminBtn" style="display:none">🛡️ Admin-Bereich</button><button id="logoutBtn">⏻ Abmelden</button></div>
   <div class="row"><button id="bkDl">⬇ Backup herunterladen</button><button id="bkUp">⬆ Backup einspielen</button><input type="file" id="bkFile" accept=".json" hidden></div>
   <div class="row" style="justify-content:space-between"><button id="exp">Chats exportieren</button><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
 </dialog>

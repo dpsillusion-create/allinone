@@ -1,6 +1,8 @@
 # Start:  docker compose up -d --build
 # Aufruf: http://<server-ip>:8080      Daten liegen im Ordner ./data (Backup = diesen Ordner kopieren)
-# Passwort (optional):  AIO_PASSWORD=meinpasswort docker compose up -d --build
+# Erster Start: Admin-Konto "admin" mit Start-Passwort im Log:  docker compose logs allinone
+#   (oder selbst festlegen:  AIO_ADMIN_PASSWORD=meinpasswort docker compose up -d --build)
+# Admin-Passwort vergessen:  docker compose exec allinone python3 server.py --reset-admin-password
 # Mit HTTPS (Mikrofon, Zwischenablage, App-Installation):
 #   AIO_HOST=<server-ip> docker compose --profile https up -d --build   ->  https://<server-ip>:8443
 services:
@@ -9,7 +11,7 @@ services:
     container_name: allinone
     restart: unless-stopped
     environment:
-      AIO_PASSWORD: ${AIO_PASSWORD:-}
+      AIO_ADMIN_PASSWORD: ${AIO_ADMIN_PASSWORD:-}
     ports:
       - "8080:8080"
     volumes:
