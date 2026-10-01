@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AllInOne KI</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#0f1115">
 <style>
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff;--ok:#4ade80;--err:#f87171}
 @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
@@ -56,6 +59,11 @@ header .t{font-weight:600}
 .cin textarea{flex:1;resize:none;max-height:180px;min-height:42px}
 .hint{max-width:820px;margin:6px auto 0;font-size:12px;color:var(--muted)}
 .dots::after{content:"▍";animation:bl 1s infinite}@keyframes bl{50%{opacity:0}}
+.atts{max-width:820px;margin:0 auto 8px;display:flex;gap:6px;flex-wrap:wrap}
+.att{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:2px 10px;font-size:12px;display:flex;gap:6px;align-items:center}
+.att img{height:22px;border-radius:4px}.att b{cursor:pointer;font-weight:400;color:var(--muted)}
+#web.on{border-color:var(--accent);color:var(--accent)}
+.msg.user .body img{max-height:140px;border-radius:8px;display:block;margin:6px 0}
 /* studio */
 #studio{flex-direction:row}
 #studio .col.l{max-width:42%;border-right:1px solid var(--line)}
@@ -114,12 +122,14 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <section class="view on" id="v-chat">
     <div class="col">
       <div class="msgs" id="msgs"></div>
-      <div class="composer"><div class="cin">
+      <div class="composer"><div class="atts" id="atts"></div><div class="cin">
+        <button id="attach" title="Datei, PDF oder Bild anhängen">📎</button><input type="file" id="file" multiple hidden accept="image/*,.pdf,.txt,.md,.csv,.json,.js,.ts,.py,.html,.css,.xml,.yml,.yaml,.log,.java,.c,.cpp,.go,.rs,.sql">
+        <button id="web" title="Websuche mit Quellen (Wikipedia)">🔎</button>
         <button id="mic" title="Diktieren">🎙️</button>
         <textarea id="inp" rows="1" placeholder="Frag mich irgendwas… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
         <button class="primary" id="send">Senden</button>
         <button id="stop" style="display:none">■</button>
-      </div><div class="hint">Kostenlos über Pollinations.ai · Keine Anmeldung · Chats bleiben nur in deinem Browser.</div></div>
+      </div><div class="hint">📎 PDFs, Texte & Bilder (auch per Einfügen/Drag&Drop) · 🔎 Websuche · Kostenlos über Pollinations.ai · Keine Anmeldung · Chats bleiben nur in deinem Browser.</div></div>
     </div>
   </section>
 
@@ -191,7 +201,7 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <label>System-Prompt (Persönlichkeit der KI)</label>
   <textarea id="sys" style="width:100%;min-height:90px"></textarea>
   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="speak"> Antworten automatisch vorlesen</label>
-  <div class="row" style="justify-content:space-between"><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
+  <div class="row" style="justify-content:space-between"><button id="exp">Chats exportieren</button><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
 </dialog>
 <div id="toast"></div>
 
@@ -206,7 +216,7 @@ const copy=t=>navigator.clipboard.writeText(t).then(()=>toast("Kopiert ✔"),()=
 
 /* ---------- Zustand ---------- */
 let S=Object.assign({chats:[],cur:null,model:"openai",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
-const save=()=>LS.set("aio",S);
+const save=()=>LS.set("aio",{...S,chats:S.chats.map(c=>({...c,msgs:c.msgs.map(({imgs,...m})=>m)}))});
 let studioMsgs=[], lastHtml="", ctrl=null;
 const STUDIO_SYS="Du bist ein Webentwickler. Antworte kurz und liefere IMMER eine einzige, vollständige, selbstständige HTML-Datei (inline CSS & JS, keine externen Abhängigkeiten außer CDNs falls nötig) in genau einem ```html Codeblock. Bei Änderungswünschen gib die komplette aktualisierte Datei zurück.";
 
@@ -257,20 +267,61 @@ $("#hist").onclick=e=>{const d=e.target.closest("[data-del]"),i=e.target.closest
   if(d){S.chats=S.chats.filter(c=>c.id!=d.dataset.del);if(S.cur==d.dataset.del)S.cur=null}else if(i){S.cur=+i.dataset.id;show("chat")}else return;save();drawChat()};
 $("#newChat").onclick=()=>{S.cur=null;save();show("chat");drawChat();$("#inp").focus()};
 const SUGG=["Erkläre mir Quantenphysik einfach","Schreibe eine Python-Funktion für Primzahlen","Plane 3 Tage in Rom","Fasse mir ein Thema in 5 Punkten zusammen"];
-function addMsg(box,role,text){const d=document.createElement("div");d.className="msg "+role;d.innerHTML=`<div class="av">${role==="user"?"🧑":"✨"}</div><div class="body"></div>`;box.appendChild(d);
-  const b=d.querySelector(".body");role==="user"?b.textContent=text:render(b,text);box.scrollTop=box.scrollHeight;return b}
+function addMsg(box,role,text,imgs){const d=document.createElement("div");d.className="msg "+role;d.innerHTML=`<div class="av">${role==="user"?"🧑":"✨"}</div><div class="body"></div>`;box.appendChild(d);
+  const b=d.querySelector(".body");if(role==="user"){b.textContent=text;(imgs||[]).forEach(u=>{const i=new Image();i.src=u;b.prepend(i)})}else render(b,text);box.scrollTop=box.scrollHeight;return b}
 function drawChat(){drawHist();const box=$("#msgs"),c=S.chats.find(x=>x.id===S.cur);box.innerHTML="";
   if(!c||!c.msgs.length){box.innerHTML=`<div class="empty"><h2>Wie kann ich helfen?</h2>Chat, Code, Bilder, Texte & Sprache – alles kostenlos an einem Ort.<div class="chips">${SUGG.map(s=>`<button>${s}</button>`).join("")}</div></div>`;
     box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#inp").value=b.textContent;sendChat()});return}
-  c.msgs.forEach(m=>addMsg(box,m.role,m.content))}
+  c.msgs.forEach(m=>addMsg(box,m.role,m.display??m.content,m.imgs))}
 function busy(on){$("#send").style.display=on?"none":"";$("#stop").style.display=on?"":"none"}
+let atts=[],webOn=false;
+const drawAtts=()=>{$("#atts").innerHTML=atts.map((a,i)=>`<span class="att">${a.img?`<img src="${a.img}">`:"📄"} ${esc(a.name)}<b data-rm="${i}">✕</b></span>`).join("")};
+$("#atts").onclick=e=>{const r=e.target.closest("[data-rm]");if(r){atts.splice(+r.dataset.rm,1);drawAtts()}};
+$("#attach").onclick=()=>$("#file").click();
+$("#file").onchange=e=>{addFiles([...e.target.files]);e.target.value=""};
+$("#web").onclick=()=>{webOn=!webOn;$("#web").classList.toggle("on",webOn);toast(webOn?"Websuche an":"Websuche aus")};
+const loadScript=u=>new Promise((ok,no)=>{const s=document.createElement("script");s.src=u;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+async function pdfText(file){
+  if(!window.pdfjsLib){await loadScript("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"}
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let out="";
+  for(let i=1;i<=Math.min(pdf.numPages,60);i++){const pg=await pdf.getPage(i);out+=(await pg.getTextContent()).items.map(x=>x.str).join(" ")+"\n\n"}
+  return out}
+function shrinkImage(file){return new Promise((ok,no)=>{const u=URL.createObjectURL(file),i=new Image();i.onload=()=>{const k=Math.min(1,1280/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=i.width*k;c.height=i.height*k;c.getContext("2d").drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL("image/jpeg",.85))};i.onerror=no;i.src=u})}
+async function addFiles(list){
+  for(const f of list){try{
+    if(f.type.startsWith("image/"))atts.push({name:f.name||"Bild",img:await shrinkImage(f)});
+    else if(/\.pdf$/i.test(f.name)||f.type==="application/pdf"){toast("PDF wird gelesen …");atts.push({name:f.name,text:await pdfText(f)})}
+    else atts.push({name:f.name,text:await f.text()});
+  }catch{toast("Konnte "+f.name+" nicht lesen")}}
+  drawAtts()}
+document.addEventListener("paste",e=>{const f=[...(e.clipboardData?.files||[])];if(f.length&&$("#v-chat").classList.contains("on")){e.preventDefault();addFiles(f)}});
+$("#v-chat").addEventListener("dragover",e=>e.preventDefault());
+$("#v-chat").addEventListener("drop",e=>{e.preventDefault();addFiles([...e.dataTransfer.files])});
+async function wikiSearch(q){
+  q=q.replace(/\s+/g," ").slice(0,200);const res=[];
+  await Promise.all(["de","en"].map(async l=>{try{
+    const r=await fetch(`https://${l}.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=3&prop=extracts|info&exintro=1&explaintext=1&exchars=900&inprop=url&format=json&origin=*`);
+    const p=Object.values((await r.json()).query?.pages||{}).sort((a,b)=>a.index-b.index);p.forEach(x=>res.push({title:x.title+" ("+l+".wikipedia)",url:x.fullurl,text:x.extract||""}))}catch{}}));
+  return res.slice(0,5)}
+const toApi=(m,keepImg)=>m.imgs&&keepImg?{role:m.role,content:[{type:"text",text:m.content},...m.imgs.map(u=>({type:"image_url",image_url:{url:u}}))]}:{role:m.role,content:m.content};
 async function sendChat(text){
-  const inp=$("#inp");text=(text??inp.value).trim();if(!text)return;inp.value="";inp.style.height="";
-  const c=curChat();if(!c.msgs.length)c.title=text.slice(0,40);c.msgs.push({role:"user",content:text});
-  const box=$("#msgs");if(box.querySelector(".empty"))box.innerHTML="";addMsg(box,"user",text);
-  const out=addMsg(box,"assistant","");out.classList.add("dots");busy(true);ctrl=new AbortController();let full="";
-  try{full=await ask([{role:"system",content:S.sys},...c.msgs.slice(-20)],t=>{full=t;render(out,t);box.scrollTop=box.scrollHeight},ctrl.signal)}
+  const inp=$("#inp");text=(text??inp.value).trim();if(!text&&!atts.length)return;inp.value="";inp.style.height="";
+  const files=atts;atts=[];drawAtts();text=text||(files.some(f=>f.img)?"Beschreibe dieses Bild.":"Fasse den Inhalt zusammen.");
+  const imgs=files.filter(f=>f.img).map(f=>f.img),docs=files.filter(f=>f.text!=null);
+  let content=text+docs.map(d=>`\n\n[Datei: ${d.name}]\n${d.text.slice(0,30000)}${d.text.length>30000?"\n…(gekürzt)":""}`).join("");
+  const display=text+files.map(f=>"\n📎 "+f.name).join("");
+  const c=curChat();if(!c.msgs.length)c.title=text.slice(0,40);const um={role:"user",content,display,imgs:imgs.length?imgs:undefined};c.msgs.push(um);
+  const box=$("#msgs");if(box.querySelector(".empty"))box.innerHTML="";addMsg(box,"user",display,imgs);
+  const out=addMsg(box,"assistant","");out.classList.add("dots");busy(true);ctrl=new AbortController();let full="",srcs=[];
+  try{
+    const hist=c.msgs.slice(-20).map((m,i,a)=>toApi(m,i>=a.length-3));
+    if(webOn){out.textContent="🔎 Suche …";srcs=await wikiSearch(text);
+      if(srcs.length){const q="Nutze diese Web-Quellen und zitiere sie als [1], [2] …, wenn sie relevant sind:\n"+srcs.map((x,i)=>`[${i+1}] ${x.title}: ${x.text}`).join("\n\n")+"\n\nFrage: "+content;
+        hist[hist.length-1]=toApi({...um,content:q},true)}
+      out.textContent=""}
+    full=await ask([{role:"system",content:S.sys},...hist],t=>{full=t;render(out,t);box.scrollTop=box.scrollHeight},ctrl.signal)}
   catch(e){if(e.name!=="AbortError"){full=full||"⚠️ Fehler: "+e.message+" – bitte nochmal versuchen."}}
+  if(full&&srcs.length)full+="\n\n**Quellen:**\n"+srcs.map((x,i)=>`${i+1}. [${x.title}](${x.url})`).join("\n");
   out.classList.remove("dots");if(full){render(out,full);c.msgs.push({role:"assistant",content:full});if(S.speak)speak(full)}
   busy(false);save();drawHist()}
 $("#send").onclick=()=>sendChat();$("#stop").onclick=()=>ctrl&&ctrl.abort();
@@ -349,12 +400,14 @@ $("#tPlay").onclick=()=>speak($("#tTxt").value||"Bitte gib einen Text ein.");$("
 /* ---------- Einstellungen & Modelle ---------- */
 $("#cfg").onclick=()=>{$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg").showModal()};
 $("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
+$("#exp").onclick=()=>{const md=S.chats.map(c=>"# "+c.title+"\n\n"+c.msgs.map(m=>"**"+(m.role==="user"?"Du":"KI")+":** "+(m.display??m.content)).join("\n\n")).join("\n\n---\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download="chats.md";a.click()};
 $("#wipe").onclick=()=>{if(confirm("Alle Chats & Bilder löschen?")){try{localStorage.removeItem("aio")}catch{}location.reload()}};
 function fillModels(list){$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
 fillModels(["openai","openai-fast","mistral","llama","deepseek"]);
 $("#model").onchange=e=>{S.model=e.target.value;save()};
 fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const n=l.map(x=>x.name||x).filter(Boolean);if(n.length){if(!n.includes(S.model))S.model=n[0];fillModels(n)}}).catch(()=>{});
 
+if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 drawChat();drawImages();drawStudio();
 </script>
 </body>
