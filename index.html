@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AllInOne KI</title>
+<style>
+:root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff;--ok:#4ade80;--err:#f87171}
+@media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;display:flex}
+button,select,textarea,input{font:inherit;color:inherit}
+button{cursor:pointer;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+button:hover{border-color:var(--accent)}
+button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:0;color:#fff;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+select,input,textarea{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none}
+textarea:focus,input:focus,select:focus{border-color:var(--accent)}
+#side{width:230px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px;gap:4px;flex-shrink:0}
+#side h1{font-size:17px;margin:2px 6px 10px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.nav{display:flex;align-items:center;gap:10px;text-align:left;border:0;background:none;padding:9px 10px;border-radius:8px;width:100%}
+.nav.on{background:var(--panel2);color:var(--accent)}
+.nav:hover{background:var(--panel2)}
+#hist{flex:1;overflow:auto;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+.hi{display:flex;gap:4px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:13px}
+.hi span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hi:hover,.hi.on{background:var(--panel2);color:var(--text)}
+.hi b{display:none;font-weight:400}.hi:hover b{display:inline}
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+header{display:flex;gap:10px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header .sp{flex:1}
+header .t{font-weight:600}
+#burger{display:none}
+.view{display:none;flex:1;min-height:0}
+.view.on{display:flex}
+.col{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}
+.msgs{flex:1;overflow:auto;padding:20px 16px}
+.msg{max-width:820px;margin:0 auto 18px;display:flex;gap:12px}
+.av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;font-size:14px;background:var(--panel2)}
+.msg.user .av{background:var(--accent);color:#fff}
+.body{min-width:0;flex:1;overflow-wrap:anywhere}
+.body p{margin:.4em 0}
+.body pre{background:#0b0d12;color:#e6e6e6;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:13px;margin:.6em 0}
+.body code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em}
+.body :not(pre)>code{background:var(--panel2);padding:1px 5px;border-radius:4px}
+.body a{color:var(--accent)}
+.codebar{display:flex;gap:6px;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-top:.6em}
+.codebar button{padding:2px 8px;font-size:12px}
+.empty{margin:auto;text-align:center;color:var(--muted);max-width:560px;padding:20px}
+.empty h2{color:var(--text);margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.chips button{border-radius:20px;font-size:13px}
+.composer{padding:12px 16px 16px;border-top:1px solid var(--line);background:var(--panel)}
+.cin{max-width:820px;margin:auto;display:flex;gap:8px;align-items:flex-end}
+.cin textarea{flex:1;resize:none;max-height:180px;min-height:42px}
+.hint{max-width:820px;margin:6px auto 0;font-size:12px;color:var(--muted)}
+.dots::after{content:"▍";animation:bl 1s infinite}@keyframes bl{50%{opacity:0}}
+/* studio */
+#studio{flex-direction:row}
+#studio .col.l{max-width:42%;border-right:1px solid var(--line)}
+.pv{display:flex;flex-direction:column;flex:1;min-width:0}
+.tabs{display:flex;gap:6px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);align-items:center;flex-wrap:wrap}
+.tabs .sp{flex:1}
+.tabs button.on{border-color:var(--accent);color:var(--accent)}
+#frame{flex:1;border:0;background:#fff;width:100%}
+#code{flex:1;display:none;margin:0;border:0;border-radius:0;resize:none;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;tab-size:2}
+/* images */
+.pad{padding:20px 16px;overflow:auto;flex:1}
+.wrap{max-width:900px;margin:auto}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.row>textarea{flex:1;min-width:240px;min-height:60px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.card img{width:100%;display:block;min-height:120px;background:var(--panel2)}
+.card div{padding:8px 10px;font-size:12px;color:var(--muted);display:flex;gap:6px;justify-content:space-between;align-items:center}
+.tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.tool{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer}
+.tool:hover{border-color:var(--accent)}
+.tool h3{margin:0 0 4px;font-size:15px}.tool p{margin:0;color:var(--muted);font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.panel textarea{width:100%;min-height:120px}
+label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:8px 14px;border-radius:8px;display:none}
+@media (max-width:820px){
+ #side{position:fixed;inset:0 auto 0 0;z-index:5;transform:translateX(-100%);transition:.2s}
+ #side.open{transform:none;box-shadow:0 0 40px #0008}
+ #burger{display:inline-block}
+ #studio{flex-direction:column}
+ #studio .col.l{max-width:none;border:0;flex:1}
+ .pv{flex:1}
+}
+</style>
+</head>
+<body>
+<nav id="side">
+  <h1>✨ AllInOne KI</h1>
+  <button class="nav on" data-v="chat">💬 Chat</button>
+  <button class="nav" data-v="studio">🧩 Studio (Live-Vorschau)</button>
+  <button class="nav" data-v="images">🎨 Bilder</button>
+  <button class="nav" data-v="write">✍️ Schreibwerkstatt</button>
+  <button class="nav" data-v="voice">🎙️ Sprache</button>
+  <div id="hist"></div>
+  <button id="newChat">＋ Neuer Chat</button>
+</nav>
+<main>
+  <header>
+    <button id="burger">☰</button>
+    <span class="t" id="title">Chat</span><span class="sp"></span>
+    <select id="model" title="Modell"></select>
+    <button id="cfg" title="Einstellungen">⚙️</button>
+  </header>
+
+  <section class="view on" id="v-chat">
+    <div class="col">
+      <div class="msgs" id="msgs"></div>
+      <div class="composer"><div class="cin">
+        <button id="mic" title="Diktieren">🎙️</button>
+        <textarea id="inp" rows="1" placeholder="Frag mich irgendwas… (Enter = senden, Shift+Enter = neue Zeile)"></textarea>
+        <button class="primary" id="send">Senden</button>
+        <button id="stop" style="display:none">■</button>
+      </div><div class="hint">Kostenlos über Pollinations.ai · Keine Anmeldung · Chats bleiben nur in deinem Browser.</div></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-studio">
+    <div class="col l">
+      <div class="msgs" id="smsgs"></div>
+      <div class="composer"><div class="cin">
+        <textarea id="sinp" rows="1" placeholder="Beschreibe die Web-App, Seite oder das Spiel…"></textarea>
+        <button class="primary" id="ssend">Bauen</button>
+      </div></div>
+    </div>
+    <div class="pv">
+      <div class="tabs">
+        <button class="on" id="tPrev">👁 Vorschau</button><button id="tCode">&lt;/&gt; Code</button>
+        <span class="sp"></span>
+        <button id="pReload">⟳</button><button id="pCopy">Kopieren</button><button id="pDl">Download</button><button id="pWin">↗ Neues Fenster</button>
+      </div>
+      <iframe id="frame" sandbox="allow-scripts allow-forms allow-modals allow-popups" srcdoc="<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0'>Hier erscheint deine Vorschau</body>"></iframe>
+      <textarea id="code" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <section class="view" id="v-images">
+    <div class="pad"><div class="wrap">
+      <div class="panel">
+        <div class="row"><textarea id="ip" placeholder="Beschreibe dein Bild… z. B. „Fuchs im Astronautenanzug, Ölgemälde“"></textarea></div>
+        <div class="row">
+          <select id="iModel"><option value="flux">Flux (Allrounder)</option><option value="turbo">Turbo (schnell)</option><option value="gptimage">GPT-Image</option></select>
+          <select id="iSize"><option value="1024x1024">Quadrat 1:1</option><option value="1344x768">Quer 16:9</option><option value="768x1344">Hoch 9:16</option></select>
+          <label style="margin:0;display:flex;align-items:center;gap:6px"><input type="checkbox" id="iEnh"> Prompt von KI verbessern</label>
+          <button class="primary" id="iGo">Bild erzeugen</button>
+        </div>
+      </div>
+      <div class="grid" id="igrid"></div>
+    </div></div>
+  </section>
+
+  <section class="view" id="v-write">
+    <div class="pad"><div class="wrap">
+      <div class="tools" id="toolgrid"></div>
+      <div class="panel" id="toolpanel" style="display:none;margin-top:16px">
+        <h3 id="tpTitle" style="margin-top:0"></h3>
+        <label>Dein Text / Thema</label><textarea id="tpIn"></textarea>
+        <div class="row"><button class="primary" id="tpGo">Ausführen</button><button id="tpCopy">Ergebnis kopieren</button></div>
+        <div class="body" id="tpOut"></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="view" id="v-voice">
+    <div class="pad"><div class="wrap">
+      <div class="panel"><h3 style="margin-top:0">🎙️ Sprache → Text</h3>
+        <p style="color:var(--muted);margin:0 0 8px">Diktiere – das Ergebnis kannst du kopieren oder direkt an den Chat schicken (Browser mit Spracherkennung nötig, z. B. Chrome/Edge/Safari).</p>
+        <select id="vLang"><option value="de-DE">Deutsch</option><option value="en-US">English</option><option value="fr-FR">Français</option><option value="es-ES">Español</option></select>
+        <button id="vRec">● Aufnehmen</button>
+        <textarea id="vTxt" style="margin-top:10px"></textarea>
+        <div class="row"><button id="vChat">An Chat senden</button><button id="vCopy">Kopieren</button></div>
+      </div>
+      <div class="panel"><h3 style="margin-top:0">🔊 Text → Sprache</h3>
+        <textarea id="tTxt" placeholder="Text zum Vorlesen…"></textarea>
+        <div class="row"><select id="tVoice"></select><button id="tPlay">▶ Vorlesen</button><button id="tStop">■ Stopp</button></div>
+      </div>
+    </div></div>
+  </section>
+</main>
+
+<dialog id="dlg" style="background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;max-width:520px;width:92%">
+  <h3 style="margin-top:0">Einstellungen</h3>
+  <label>System-Prompt (Persönlichkeit der KI)</label>
+  <textarea id="sys" style="width:100%;min-height:90px"></textarea>
+  <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="speak"> Antworten automatisch vorlesen</label>
+  <div class="row" style="justify-content:space-between"><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
+</dialog>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const API="https://text.pollinations.ai/openai";
+const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1800)}
+const copy=t=>navigator.clipboard.writeText(t).then(()=>toast("Kopiert ✔"),()=>toast("Kopieren nicht möglich"));
+
+/* ---------- Zustand ---------- */
+let S=Object.assign({chats:[],cur:null,model:"openai",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
+const save=()=>LS.set("aio",S);
+let studioMsgs=[], lastHtml="", ctrl=null;
+const STUDIO_SYS="Du bist ein Webentwickler. Antworte kurz und liefere IMMER eine einzige, vollständige, selbstständige HTML-Datei (inline CSS & JS, keine externen Abhängigkeiten außer CDNs falls nötig) in genau einem ```html Codeblock. Bei Änderungswünschen gib die komplette aktualisierte Datei zurück.";
+
+/* ---------- Navigation ---------- */
+const titles={chat:"Chat",studio:"Studio – Live-Vorschau",images:"Bildgenerator",write:"Schreibwerkstatt",voice:"Sprache"};
+function show(v){$$(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));$$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.v===v));$("#title").textContent=titles[v];$("#side").classList.remove("open")}
+$$(".nav").forEach(b=>b.onclick=()=>show(b.dataset.v));
+$("#burger").onclick=()=>$("#side").classList.toggle("open");
+
+/* ---------- Markdown ---------- */
+function md(src){
+  const blocks=[];
+  src=src.replace(/```(\w*)\n?([\s\S]*?)(```|$)/g,(_,l,c)=>{blocks.push({l,c:c.replace(/\n$/,"")});return `\u0000${blocks.length-1}\u0000`});
+  let h=esc(src).replace(/^### (.*)$/gm,"<h4>$1</h4>").replace(/^## (.*)$/gm,"<h3>$1</h3>").replace(/^# (.*)$/gm,"<h2>$1</h2>")
+    .replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g,"$1<i>$2</i>").replace(/`([^`\n]+)`/g,"<code>$1</code>")
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^(?:[-*] .*(?:\n|$))+/gm,m=>"<ul>"+m.trim().split("\n").map(x=>"<li>"+x.slice(2)+"</li>").join("")+"</ul>")
+    .replace(/^(?:\d+\. .*(?:\n|$))+/gm,m=>"<ol>"+m.trim().split("\n").map(x=>"<li>"+x.replace(/^\d+\. /,"")+"</li>").join("")+"</ol>");
+  h=h.split(/\n{2,}/).map(p=>/^<(h\d|ul|ol)/.test(p.trim())?p:"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("");
+  return h.replace(/\u0000(\d+)\u0000/g,(_,i)=>{const b=blocks[+i],prev=/^(html|svg)$/i.test(b.l);
+    return `<pre><code>${esc(b.c)}</code></pre><div class="codebar"><span>${esc(b.l||"code")}</span><span><button data-act="copy" data-i="${i}">Kopieren</button>${prev?` <button data-act="studio" data-i="${i}">👁 Vorschau</button>`:""}</span></div>`}).replace(/<p><pre>/g,"<pre>").replace(/<\/div><\/p>/g,"</div>");
+}
+function render(el,text){
+  const blocks=[];const src=text; // Blöcke für Buttons zwischenspeichern
+  src.replace(/```(\w*)\n?([\s\S]*?)(```|$)/g,(_,l,c)=>{blocks.push(c.replace(/\n$/,""))});
+  el.innerHTML=md(text);el._blocks=blocks;
+}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-act]");if(!b)return;const code=b.closest(".body")._blocks[+b.dataset.i];
+  if(b.dataset.act==="copy")copy(code);else{setPreview(code);show("studio")}});
+
+/* ---------- KI-Aufruf (Streaming) ---------- */
+async function ask(messages,onToken,signal,model){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},signal,body:JSON.stringify({model:model||S.model,messages,stream:true})});
+  if(!r.ok)throw new Error("Server antwortete mit "+r.status);
+  const rd=r.body.getReader(),dec=new TextDecoder();let buf="",full="";
+  for(;;){const{done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+    const lines=buf.split("\n");buf=lines.pop();
+    for(const l of lines){if(!l.startsWith("data:"))continue;const d=l.slice(5).trim();if(d==="[DONE]")continue;
+      try{const t=JSON.parse(d).choices?.[0]?.delta?.content;if(t){full+=t;onToken(full)}}catch{}}}
+  return full;
+}
+const ask1=(messages,model)=>ask(messages,()=>{},undefined,model);
+
+/* ---------- Chat ---------- */
+function curChat(){let c=S.chats.find(x=>x.id===S.cur);if(!c){c={id:Date.now(),title:"Neuer Chat",msgs:[]};S.chats.unshift(c);S.cur=c.id}return c}
+function drawHist(){$("#hist").innerHTML=S.chats.map(c=>`<div class="hi ${c.id===S.cur?"on":""}" data-id="${c.id}"><span>${esc(c.title)}</span><b data-del="${c.id}">✕</b></div>`).join("")}
+$("#hist").onclick=e=>{const d=e.target.closest("[data-del]"),i=e.target.closest(".hi");
+  if(d){S.chats=S.chats.filter(c=>c.id!=d.dataset.del);if(S.cur==d.dataset.del)S.cur=null}else if(i){S.cur=+i.dataset.id;show("chat")}else return;save();drawChat()};
+$("#newChat").onclick=()=>{S.cur=null;save();show("chat");drawChat();$("#inp").focus()};
+const SUGG=["Erkläre mir Quantenphysik einfach","Schreibe eine Python-Funktion für Primzahlen","Plane 3 Tage in Rom","Fasse mir ein Thema in 5 Punkten zusammen"];
+function addMsg(box,role,text){const d=document.createElement("div");d.className="msg "+role;d.innerHTML=`<div class="av">${role==="user"?"🧑":"✨"}</div><div class="body"></div>`;box.appendChild(d);
+  const b=d.querySelector(".body");role==="user"?b.textContent=text:render(b,text);box.scrollTop=box.scrollHeight;return b}
+function drawChat(){drawHist();const box=$("#msgs"),c=S.chats.find(x=>x.id===S.cur);box.innerHTML="";
+  if(!c||!c.msgs.length){box.innerHTML=`<div class="empty"><h2>Wie kann ich helfen?</h2>Chat, Code, Bilder, Texte & Sprache – alles kostenlos an einem Ort.<div class="chips">${SUGG.map(s=>`<button>${s}</button>`).join("")}</div></div>`;
+    box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#inp").value=b.textContent;sendChat()});return}
+  c.msgs.forEach(m=>addMsg(box,m.role,m.content))}
+function busy(on){$("#send").style.display=on?"none":"";$("#stop").style.display=on?"":"none"}
+async function sendChat(text){
+  const inp=$("#inp");text=(text??inp.value).trim();if(!text)return;inp.value="";inp.style.height="";
+  const c=curChat();if(!c.msgs.length)c.title=text.slice(0,40);c.msgs.push({role:"user",content:text});
+  const box=$("#msgs");if(box.querySelector(".empty"))box.innerHTML="";addMsg(box,"user",text);
+  const out=addMsg(box,"assistant","");out.classList.add("dots");busy(true);ctrl=new AbortController();let full="";
+  try{full=await ask([{role:"system",content:S.sys},...c.msgs.slice(-20)],t=>{full=t;render(out,t);box.scrollTop=box.scrollHeight},ctrl.signal)}
+  catch(e){if(e.name!=="AbortError"){full=full||"⚠️ Fehler: "+e.message+" – bitte nochmal versuchen."}}
+  out.classList.remove("dots");if(full){render(out,full);c.msgs.push({role:"assistant",content:full});if(S.speak)speak(full)}
+  busy(false);save();drawHist()}
+$("#send").onclick=()=>sendChat();$("#stop").onclick=()=>ctrl&&ctrl.abort();
+function autosize(t){t.addEventListener("input",()=>{t.style.height="auto";t.style.height=Math.min(t.scrollHeight,180)+"px"})}
+$$("textarea.auto,#inp,#sinp").forEach(autosize);
+$("#inp").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}});
+
+/* ---------- Studio ---------- */
+function setPreview(html){lastHtml=html;$("#frame").srcdoc=html;$("#code").value=html}
+function drawStudio(){const box=$("#smsgs");box.innerHTML=studioMsgs.length?"":`<div class="empty"><h2>Baue Apps per Beschreibung</h2>Wie Claude Artifacts / ChatGPT Canvas: Beschreibe es – rechts siehst du sofort das Ergebnis.<div class="chips">${["Snake-Spiel","Todo-App mit Dunkelmodus","Taschenrechner","Portfolio-Landingpage"].map(s=>`<button>${s}</button>`).join("")}</div></div>`;
+  box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#sinp").value=b.textContent+" bauen";sendStudio()});
+  studioMsgs.forEach(m=>addMsg(box,m.role,m.content))}
+async function sendStudio(){
+  const inp=$("#sinp"),text=inp.value.trim();if(!text)return;inp.value="";inp.style.height="";
+  studioMsgs.push({role:"user",content:text});const box=$("#smsgs");if(box.querySelector(".empty"))box.innerHTML="";addMsg(box,"user",text);
+  const out=addMsg(box,"assistant","");out.classList.add("dots");$("#ssend").disabled=true;let full="";
+  const ctxMsgs=studioMsgs.slice(-6).map(m=>m.role==="assistant"?{role:"assistant",content:m.content.slice(0,12000)}:m);
+  try{full=await ask([{role:"system",content:STUDIO_SYS},...ctxMsgs],t=>{full=t;const m=t.match(/```html\n?([\s\S]*?)(```|$)/);
+      out.innerHTML=md(t.replace(/```html[\s\S]*/,"_(Code wird geschrieben …)_"));if(m){$("#code").value=m[1]}box.scrollTop=box.scrollHeight})}
+  catch(e){full="⚠️ Fehler: "+e.message}
+  out.classList.remove("dots");const m=full.match(/```html\n?([\s\S]*?)```/)||full.match(/```html\n?([\s\S]*)$/);
+  if(m){setPreview(m[1]);full=full.replace(/```html[\s\S]*?(```|$)/,"✅ Fertig – siehe Vorschau.")}
+  render(out,full);studioMsgs.push({role:"assistant",content:m?"```html\n"+m[1]+"\n```":full});$("#ssend").disabled=false}
+$("#ssend").onclick=sendStudio;
+$("#sinp").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendStudio()}});
+const tab=c=>{$("#frame").style.display=c?"none":"";$("#code").style.display=c?"block":"none";$("#tPrev").classList.toggle("on",!c);$("#tCode").classList.toggle("on",c)};
+$("#tPrev").onclick=()=>{if($("#code").style.display==="block")setPreview($("#code").value);tab(false)};$("#tCode").onclick=()=>tab(true);
+$("#pReload").onclick=()=>setPreview($("#code").value||lastHtml);$("#pCopy").onclick=()=>copy($("#code").value);
+$("#pDl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([$("#code").value],{type:"text/html"}));a.download="app.html";a.click()};
+$("#pWin").onclick=()=>{const u=URL.createObjectURL(new Blob([$("#code").value||lastHtml],{type:"text/html"}));window.open(u,"_blank")};
+
+/* ---------- Bilder ---------- */
+function drawImages(){$("#igrid").innerHTML=S.images.map((im,i)=>`<div class="card"><img loading="lazy" src="${im.url}" alt="${esc(im.p)}"><div><span title="${esc(im.p)}">${esc(im.p.slice(0,32))}</span><a href="${im.url}" target="_blank" rel="noopener" download>⬇</a><button data-rm="${i}" style="padding:0 6px">✕</button></div></div>`).join("")}
+$("#igrid").onclick=e=>{const r=e.target.closest("[data-rm]");if(r){S.images.splice(+r.dataset.rm,1);save();drawImages()}};
+$("#iGo").onclick=async()=>{let p=$("#ip").value.trim();if(!p)return;const btn=$("#iGo");btn.disabled=true;btn.textContent="Erzeuge…";
+  try{if($("#iEnh").checked){try{p=(await ask1([{role:"system",content:"Schreibe aus der Idee einen detaillierten englischen Bild-Prompt (max. 60 Wörter). Antworte NUR mit dem Prompt."},{role:"user",content:p}])).trim()}catch{}}
+    const [w,h]=$("#iSize").value.split("x");const url=`https://image.pollinations.ai/prompt/${encodeURIComponent(p)}?width=${w}&height=${h}&model=${$("#iModel").value}&seed=${Math.floor(Math.random()*1e6)}&nologo=true`;
+    S.images.unshift({url,p});S.images=S.images.slice(0,40);save();drawImages()}finally{btn.disabled=false;btn.textContent="Bild erzeugen"}};
+
+/* ---------- Schreibwerkstatt ---------- */
+const TOOLS=[["✉️","E-Mail schreiben","Formulierte E-Mail aus Stichpunkten","Schreibe aus den Stichpunkten eine höfliche, klare E-Mail inkl. Betreff."],
+["📝","Zusammenfassen","Langen Text kurz & klar","Fasse den Text in maximal 5 prägnanten Stichpunkten zusammen und füge ein 1-Satz-Fazit an."],
+["🌍","Übersetzen","Deutsch ⇄ Englisch u. a.","Übersetze den Text. Ist er Deutsch, übersetze ins Englische, sonst ins Deutsche. Nur die Übersetzung ausgeben."],
+["🪄","Umschreiben","Besser, kürzer, professioneller","Schreibe den Text stilistisch besser, klar und professionell um, behalte die Bedeutung."],
+["✅","Korrigieren","Rechtschreibung & Grammatik","Korrigiere Rechtschreibung, Grammatik und Zeichensetzung. Gib den korrigierten Text und darunter eine kurze Liste der Änderungen aus."],
+["💡","Ideen sammeln","Brainstorming zu jedem Thema","Liefere 10 kreative, konkrete Ideen zum Thema, jeweils mit einem Satz Erklärung."],
+["📣","Social-Media-Post","Posts für Instagram, LinkedIn…","Schreibe 3 unterschiedliche Social-Media-Posts mit passenden Hashtags zum Thema."],
+["🧠","Erkläre es einfach","ELI5 für komplexe Themen","Erkläre das Thema so einfach, dass es ein Zehnjähriger versteht, mit einem Alltagsbeispiel."]];
+let tool=null;
+$("#toolgrid").innerHTML=TOOLS.map((t,i)=>`<div class="tool" data-t="${i}"><h3>${t[0]} ${t[1]}</h3><p>${t[2]}</p></div>`).join("");
+$("#toolgrid").onclick=e=>{const t=e.target.closest(".tool");if(!t)return;tool=TOOLS[+t.dataset.t];$("#toolpanel").style.display="";$("#tpTitle").textContent=tool[0]+" "+tool[1];$("#tpIn").focus();$("#tpIn").placeholder=tool[2]};
+let tpText="";
+$("#tpGo").onclick=async()=>{const t=$("#tpIn").value.trim();if(!t||!tool)return;const o=$("#tpOut");o.classList.add("dots");$("#tpGo").disabled=true;
+  try{tpText=await ask([{role:"system",content:tool[3]+" Antworte in der Sprache des Nutzers, sofern nicht anders verlangt."},{role:"user",content:t}],x=>{tpText=x;render(o,x)})}catch(e){tpText="⚠️ "+e.message}
+  o.classList.remove("dots");render(o,tpText);$("#tpGo").disabled=false};
+$("#tpCopy").onclick=()=>copy(tpText);
+
+/* ---------- Sprache ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;let rec=null,recTarget=null;
+function dictate(target,lang,btn){
+  if(!SR)return toast("Spracherkennung wird von diesem Browser nicht unterstützt");
+  if(rec){rec.stop();return}
+  rec=new SR();rec.lang=lang;rec.interimResults=true;rec.continuous=true;const base=target.value?target.value+" ":"";
+  rec.onresult=e=>{target.value=base+[...e.results].map(r=>r[0].transcript).join("")};
+  rec.onend=()=>{rec=null;btn.textContent=btn.dataset.idle};rec.onerror=()=>{rec=null;btn.textContent=btn.dataset.idle};
+  btn.dataset.idle=btn.textContent;btn.textContent="■ Stopp";rec.start()}
+$("#mic").onclick=()=>dictate($("#inp"),"de-DE",$("#mic"));
+$("#vRec").onclick=()=>dictate($("#vTxt"),$("#vLang").value,$("#vRec"));
+$("#vCopy").onclick=()=>copy($("#vTxt").value);
+$("#vChat").onclick=()=>{const t=$("#vTxt").value;if(t){show("chat");sendChat(t)}};
+function loadVoices(){const v=speechSynthesis.getVoices();$("#tVoice").innerHTML=v.map((x,i)=>`<option value="${i}">${esc(x.name)} (${x.lang})</option>`).join("")}
+if("speechSynthesis"in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices}
+function speak(t,i){if(!("speechSynthesis"in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t.replace(/```[\s\S]*?```/g," Codeblock. ").replace(/[*#`_]/g,""));const v=speechSynthesis.getVoices()[i??$("#tVoice").value];if(v){u.voice=v;u.lang=v.lang}speechSynthesis.speak(u)}
+$("#tPlay").onclick=()=>speak($("#tTxt").value||"Bitte gib einen Text ein.");$("#tStop").onclick=()=>speechSynthesis.cancel();
+
+/* ---------- Einstellungen & Modelle ---------- */
+$("#cfg").onclick=()=>{$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg").showModal()};
+$("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
+$("#wipe").onclick=()=>{if(confirm("Alle Chats & Bilder löschen?")){try{localStorage.removeItem("aio")}catch{}location.reload()}};
+function fillModels(list){$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
+fillModels(["openai","openai-fast","mistral","llama","deepseek"]);
+$("#model").onchange=e=>{S.model=e.target.value;save()};
+fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const n=l.map(x=>x.name||x).filter(Boolean);if(n.length){if(!n.includes(S.model))S.model=n[0];fillModels(n)}}).catch(()=>{});
+
+drawChat();drawImages();drawStudio();
+</script>
+</body>
+</html>
