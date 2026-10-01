@@ -1,5 +1,6 @@
 # Start:  docker compose up -d --build
-# Aufruf: http://<server-ip>:8080
+# Aufruf: http://<server-ip>:8080      Daten liegen im Ordner ./data (Backup = diesen Ordner kopieren)
+# Passwort (optional):  AIO_PASSWORD=meinpasswort docker compose up -d --build
 # Mit HTTPS (Mikrofon, Zwischenablage, App-Installation):
 #   AIO_HOST=<server-ip> docker compose --profile https up -d --build   ->  https://<server-ip>:8443
 services:
@@ -7,25 +8,25 @@ services:
     build: .
     container_name: allinone
     restart: unless-stopped
+    environment:
+      AIO_PASSWORD: ${AIO_PASSWORD:-}
     ports:
-      - "8080:80"
+      - "8080:8080"
+    volumes:
+      - ./data:/data
 
   allinone-https:
     profiles: ["https"]
     image: caddy:2-alpine
     container_name: allinone-https
     restart: unless-stopped
+    depends_on: [allinone]
     environment:
       AIO_HOST: ${AIO_HOST:-localhost}
     ports:
       - "8443:8443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./index.html:/srv/index.html:ro
-      - ./prompt.html:/srv/prompt.html:ro
-      - ./sw.js:/srv/sw.js:ro
-      - ./manifest.webmanifest:/srv/manifest.webmanifest:ro
-      - ./icon.svg:/srv/icon.svg:ro
       - caddy_data:/data
 
 volumes:

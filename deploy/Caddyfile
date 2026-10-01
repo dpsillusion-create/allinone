@@ -3,6 +3,5 @@
 {$AIO_HOST}:8443 {
   tls internal
   encode gzip
-  root * /srv
-  file_server
+  reverse_proxy allinone:8080
 }

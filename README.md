@@ -16,4 +16,4 @@ Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-
 🖥️ **Eigener Server:** Anleitung für Docker/systemd im Heimnetz in [DEPLOY.md](DEPLOY.md).
 
 KI-Engine: [Pollinations.ai](https://pollinations.ai) (kostenlos). Start: `index.html` im Browser öffnen oder per GitHub Pages hosten.
-Chats/Bilder werden nur im lokalen Browser-Speicher gehalten.
+Daten: mit `server.py` (siehe DEPLOY.md) zentral auf deinem Server, auf allen Geräten gleich; ohne Server lokal im Browser. Backup-Download/-Upload unter ⚙️.

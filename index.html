@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
 <meta name="theme-color" content="#0f1115">
+<script src="store.js"></script>
 <style>
 :root{--bg:#0f1115;--panel:#161922;--panel2:#1d2130;--line:#2a3042;--text:#e8eaf0;--muted:#8b93a7;--accent:#7c8cff;--accent2:#b07cff;--ok:#4ade80;--err:#f87171}
 @media (prefers-color-scheme:light){:root{--bg:#f6f7fb;--panel:#fff;--panel2:#eef0f7;--line:#dcdfeb;--text:#1b1e2b;--muted:#667}}
@@ -253,6 +254,8 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <label>System-Prompt (Persönlichkeit der KI)</label>
   <textarea id="sys" style="width:100%;min-height:90px"></textarea>
   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="speak"> Antworten automatisch vorlesen</label>
+  <label>Speicherort</label><div id="storeInfo" style="font-size:13px"></div>
+  <div class="row"><button id="bkDl">⬇ Backup herunterladen</button><button id="bkUp">⬆ Backup einspielen</button><input type="file" id="bkFile" accept=".json" hidden></div>
   <div class="row" style="justify-content:space-between"><button id="exp">Chats exportieren</button><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
 </dialog>
 <div id="toast"></div>
@@ -491,10 +494,15 @@ function speak(t,i){if(!("speechSynthesis"in window))return;speechSynthesis.canc
 $("#tPlay").onclick=()=>speak($("#tTxt").value||"Bitte gib einen Text ein.");$("#tStop").onclick=()=>speechSynthesis.cancel();
 
 /* ---------- Einstellungen & Modelle ---------- */
-$("#cfg").onclick=()=>{$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg").showModal()};
+function storeInfo(){const st=window.AIO_STORE||{};$("#storeInfo").textContent=st.server?(st.error?"⚠️ Server nicht erreichbar – Änderungen sind vorerst nur lokal":"✅ Auf dem Server gespeichert – auf allen Geräten verfügbar"):"💾 Nur lokal in diesem Browser"}
+$("#bkDl").onclick=()=>{const o={_aio:1,date:new Date().toISOString()};(window.AIO_KEYS||["aio"]).forEach(k=>{try{const v=localStorage.getItem(k);if(v!=null)o[k]=JSON.parse(v)}catch{}});dl(new Blob([JSON.stringify(o)],{type:"application/json"}),"allinone-backup.json")};
+$("#bkUp").onclick=()=>$("#bkFile").click();
+$("#bkFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const o=JSON.parse(await f.text());if(!o._aio)throw 0;
+  if(!confirm("Backup einspielen? Vorhandene Daten werden überschrieben."))return;(window.AIO_KEYS||["aio"]).forEach(k=>{if(k in o)localStorage.setItem(k,JSON.stringify(o[k]))});toast("Backup eingespielt ✔");setTimeout(()=>location.reload(),600)}catch{toast("Keine gültige Backup-Datei")}};
+$("#cfg").onclick=()=>{storeInfo();$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg").showModal()};
 $("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
 $("#exp").onclick=()=>{const md=S.chats.map(c=>"# "+c.title+"\n\n"+c.msgs.map(m=>"**"+(m.role==="user"?"Du":"KI")+":** "+(m.display??m.content)).join("\n\n")).join("\n\n---\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download="chats.md";a.click()};
-$("#wipe").onclick=()=>{if(confirm("Alle Chats & Bilder löschen?")){try{localStorage.removeItem("aio")}catch{}location.reload()}};
+$("#wipe").onclick=()=>{if(confirm("Alle Chats, Bilder, Projekte und Prompts löschen (auch auf dem Server)?")){(window.AIO_KEYS||["aio"]).forEach(k=>{try{localStorage.removeItem(k)}catch{}});location.reload()}};
 function fillModels(list){setTimeout(()=>fillCompare(list));$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
 fillModels(["openai","openai-fast","mistral","llama","deepseek"]);
 $("#model").onchange=e=>{S.model=e.target.value;save()};
