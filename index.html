@@ -73,6 +73,7 @@ header .t{font-weight:600}
 .tabs button.on{border-color:var(--accent);color:var(--accent)}
 #frame{flex:1;border:0;background:#fff;width:100%}
 #code{flex:1;display:none;margin:0;border:0;border-radius:0;resize:none;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;white-space:pre;tab-size:2}
+#ftabs{padding:4px 12px;gap:4px}#ftabs button{padding:2px 10px;font-size:12px}#ftabs button.on{border-color:var(--accent);color:var(--accent)}#verSel{max-width:150px;padding:4px 6px}
 /* images */
 .pad{padding:20px 16px;overflow:auto;flex:1}
 .wrap{max-width:900px;margin:auto}
@@ -145,9 +146,11 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
     <div class="pv">
       <div class="tabs">
         <button class="on" id="tPrev">👁 Vorschau</button><button id="tCode">&lt;/&gt; Code</button>
+        <select id="verSel" title="Versionsverlauf"></select><button id="verRestore" title="Diese Version wiederherstellen">↩ Zurück</button><button id="verSave" title="Aktuellen Stand als Version speichern">💾</button>
         <span class="sp"></span>
-        <button id="pReload">⟳</button><button id="pCopy">Kopieren</button><button id="pDl">Download</button><button id="pWin">↗ Neues Fenster</button>
+        <button id="pReload" title="Vorschau neu laden">⟳</button><button id="pCopy">Kopieren</button><button id="pZip">⬇ ZIP</button><button id="pDl">⬇ HTML</button><button id="pWin">↗ Fenster</button>
       </div>
+      <div class="tabs" id="ftabs" style="display:none"></div>
       <iframe id="frame" sandbox="allow-scripts allow-forms allow-modals allow-popups" srcdoc="<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0'>Hier erscheint deine Vorschau</body>"></iframe>
       <textarea id="code" spellcheck="false"></textarea>
     </div>
@@ -219,7 +222,7 @@ const copy=t=>navigator.clipboard.writeText(t).then(()=>toast("Kopiert ✔"),()=
 let S=Object.assign({chats:[],cur:null,model:"openai",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
 const save=()=>LS.set("aio",{...S,chats:S.chats.map(c=>({...c,msgs:c.msgs.map(({imgs,...m})=>m)}))});
 let studioMsgs=[], lastHtml="", ctrl=null;
-const STUDIO_SYS="Du bist ein Webentwickler. Antworte kurz und liefere IMMER eine einzige, vollständige, selbstständige HTML-Datei (inline CSS & JS, keine externen Abhängigkeiten außer CDNs falls nötig) in genau einem ```html Codeblock. Bei Änderungswünschen gib die komplette aktualisierte Datei zurück.";
+const STUDIO_SYS="Du bist ein Webentwickler. Antworte sehr kurz (1-2 Sätze) und liefere das Projekt als Dateien. Jede Datei: eine Zeile `FILE: dateiname` und direkt darunter ein Codeblock mit dem VOLLSTÄNDIGEN Inhalt. Einstiegspunkt ist immer index.html; CSS/JS dürfen als style.css / script.js getrennt sein (in index.html per <link href=\"style.css\"> bzw. <script src=\"script.js\"> einbinden) oder inline stehen. Keine Build-Tools; externe Bibliotheken nur per CDN. Gib bei Änderungen NUR die geänderten Dateien vollständig zurück.";
 
 /* ---------- Navigation ---------- */
 const titles={chat:"Chat",studio:"Studio – Live-Vorschau",images:"Bildgenerator",write:"Schreibwerkstatt",voice:"Sprache"};
@@ -334,28 +337,65 @@ $$("textarea.auto,#inp,#sinp").forEach(autosize);
 $("#inp").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat()}});
 
 /* ---------- Studio ---------- */
-function setPreview(html){lastHtml=html;$("#frame").srcdoc=html;$("#code").value=html}
-function drawStudio(){const box=$("#smsgs");box.innerHTML=studioMsgs.length?"":`<div class="empty"><h2>Baue Apps per Beschreibung</h2>Wie Claude Artifacts / ChatGPT Canvas: Beschreibe es – rechts siehst du sofort das Ergebnis.<div class="chips">${["Snake-Spiel","Todo-App mit Dunkelmodus","Taschenrechner","Portfolio-Landingpage"].map(s=>`<button>${s}</button>`).join("")}</div></div>`;
+let files=LS.get("aioStudioFiles",{}),active="index.html",versions=LS.get("aioStudioVers",[]);
+const saveStudio=()=>{LS.set("aioStudioFiles",files);LS.set("aioStudioVers",versions.slice(0,30))};
+function bundle(){ // Dateien zu einer HTML-Seite zusammenfügen (für Vorschau/Export)
+  let h=files["index.html"];if(h==null)return"";
+  h=h.replace(/<link[^>]*href=["']([^"']+)["'][^>]*>/gi,(m,f)=>files[f]!=null&&/stylesheet/i.test(m)?`<style>\n${files[f]}\n</style>`:m);
+  h=h.replace(/<script([^>]*)src=["']([^"']+)["']([^>]*)><\/script>/gi,(m,a1,f,a2)=>files[f]!=null?`<script${a1}${a2}>\n${files[f].replace(/<\/script/gi,"<\\/script")}\n<\/script>`:m);
+  return h}
+function snapshot(label){const cur=JSON.stringify(files);if(versions[0]&&JSON.stringify(versions[0].files)===cur)return;
+  versions.unshift({t:Date.now(),label,files:JSON.parse(cur)});versions=versions.slice(0,30);saveStudio();drawVers()}
+function drawVers(){$("#verSel").innerHTML=versions.length?versions.map((v,i)=>`<option value="${i}">${i===0?"● ":""}${new Date(v.t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · ${esc(v.label)}</option>`).join(""):"<option>Keine Version</option>"}
+function drawFiles(){const names=Object.keys(files);
+  $("#ftabs").innerHTML=names.map(n=>`<button class="${n===active?"on":""}" data-f="${esc(n)}">${esc(n)}</button>`).join("")+'<button id="fAdd" title="Datei hinzufügen">＋</button><button id="fDel" title="Aktive Datei löschen">🗑</button>';
+  $("#code").value=files[active]??""}
+function refresh(){if(!(active in files))active=Object.keys(files)[0]||"index.html";const b=bundle();$("#frame").srcdoc=b||"<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0'>Hier erscheint deine Vorschau</body>";drawFiles();drawVers()}
+function setPreview(html){files={"index.html":html};active="index.html";snapshot("Aus Chat übernommen");refresh()} // von Chat-Codeblöcken genutzt
+function parseFiles(t){const out={};t.replace(/FILE:\s*`?([^\s`]+)`?\s*\n```[\w+-]*\n([\s\S]*?)(```|$)/g,(_,n,c)=>{out[n.replace(/^\.?\//,"")]=c.replace(/\n$/,"")});
+  if(!Object.keys(out).length){const m=t.match(/```html\n([\s\S]*?)(```|$)/);if(m)out["index.html"]=m[1].replace(/\n$/,"")}return out}
+function drawStudio(){const box=$("#smsgs");box.innerHTML=studioMsgs.length?"":`<div class="empty"><h2>Baue Apps per Beschreibung</h2>Wie Claude Artifacts / ChatGPT Canvas: Beschreibe es – rechts siehst du sofort das Ergebnis, mit mehreren Dateien, Versionsverlauf und ZIP-Export.<div class="chips">${["Snake-Spiel","Todo-App mit Dunkelmodus","Taschenrechner","Portfolio-Landingpage"].map(s=>`<button>${s}</button>`).join("")}</div></div>`;
   box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#sinp").value=b.textContent+" bauen";sendStudio()});
   studioMsgs.forEach(m=>addMsg(box,m.role,m.content))}
 async function sendStudio(){
   const inp=$("#sinp"),text=inp.value.trim();if(!text)return;inp.value="";inp.style.height="";
   studioMsgs.push({role:"user",content:text});const box=$("#smsgs");if(box.querySelector(".empty"))box.innerHTML="";addMsg(box,"user",text);
   const out=addMsg(box,"assistant","");out.classList.add("dots");$("#ssend").disabled=true;let full="";
-  const ctxMsgs=studioMsgs.slice(-6).map(m=>m.role==="assistant"?{role:"assistant",content:m.content.slice(0,12000)}:m);
-  try{full=await ask([{role:"system",content:STUDIO_SYS},...ctxMsgs],t=>{full=t;const m=t.match(/```html\n?([\s\S]*?)(```|$)/);
-      out.innerHTML=md(t.replace(/```html[\s\S]*/,"_(Code wird geschrieben …)_"));if(m){$("#code").value=m[1]}box.scrollTop=box.scrollHeight})}
+  const proj=Object.keys(files).length?"\n\nAKTUELLES PROJEKT:\n"+Object.entries(files).map(([n,c])=>`FILE: ${n}\n\`\`\`\n${c.slice(0,15000)}\n\`\`\``).join("\n"):"";
+  const ctxMsgs=studioMsgs.slice(-6).map(m=>({role:m.role,content:m.content}));
+  try{full=await ask([{role:"system",content:STUDIO_SYS+proj},...ctxMsgs],t=>{full=t;const n=Object.keys(parseFiles(t));
+      out.textContent=n.length?"✍️ Schreibe: "+n.join(", ")+" …":"Denke nach …";box.scrollTop=box.scrollHeight})}
   catch(e){full="⚠️ Fehler: "+e.message}
-  out.classList.remove("dots");const m=full.match(/```html\n?([\s\S]*?)```/)||full.match(/```html\n?([\s\S]*)$/);
-  if(m){setPreview(m[1]);full=full.replace(/```html[\s\S]*?(```|$)/,"✅ Fertig – siehe Vorschau.")}
-  render(out,full);studioMsgs.push({role:"assistant",content:m?"```html\n"+m[1]+"\n```":full});$("#ssend").disabled=false}
+  out.classList.remove("dots");const nf=parseFiles(full);let reply=full;
+  if(Object.keys(nf).length){snapshot("Vor: "+text.slice(0,24));Object.assign(files,nf);active=nf["index.html"]!=null?"index.html":Object.keys(nf)[0];snapshot(text.slice(0,30));refresh();
+    reply=full.replace(/FILE:[\s\S]*$/,"").replace(/```[\s\S]*$/,"").trim()+"\n\n✅ Aktualisiert: "+Object.keys(nf).map(n=>"`"+n+"`").join(", ")}
+  render(out,reply);studioMsgs.push({role:"assistant",content:reply});$("#ssend").disabled=false}
 $("#ssend").onclick=sendStudio;
 $("#sinp").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendStudio()}});
-const tab=c=>{$("#frame").style.display=c?"none":"";$("#code").style.display=c?"block":"none";$("#tPrev").classList.toggle("on",!c);$("#tCode").classList.toggle("on",c)};
-$("#tPrev").onclick=()=>{if($("#code").style.display==="block")setPreview($("#code").value);tab(false)};$("#tCode").onclick=()=>tab(true);
-$("#pReload").onclick=()=>setPreview($("#code").value||lastHtml);$("#pCopy").onclick=()=>copy($("#code").value);
-$("#pDl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([$("#code").value],{type:"text/html"}));a.download="app.html";a.click()};
-$("#pWin").onclick=()=>{const u=URL.createObjectURL(new Blob([$("#code").value||lastHtml],{type:"text/html"}));window.open(u,"_blank")};
+const tab=c=>{$("#frame").style.display=c?"none":"";$("#code").style.display=c?"block":"none";$("#ftabs").style.display=c?"flex":"none";$("#tPrev").classList.toggle("on",!c);$("#tCode").classList.toggle("on",c)};
+$("#tPrev").onclick=()=>{tab(false);refresh()};$("#tCode").onclick=()=>{tab(true);drawFiles()};
+$("#code").addEventListener("input",()=>{files[active]=$("#code").value;saveStudio()});
+$("#ftabs").onclick=e=>{const f=e.target.closest("[data-f]");
+  if(f){active=f.dataset.f;drawFiles()}
+  else if(e.target.id==="fAdd"){const n=prompt("Dateiname (z. B. style.css):");if(n&&!(n in files)){files[n]="";active=n;drawFiles();saveStudio()}}
+  else if(e.target.id==="fDel"&&confirm(active+" löschen?")){delete files[active];active=Object.keys(files)[0]||"index.html";saveStudio();refresh()}};
+$("#pReload").onclick=()=>{snapshot("Manuelle Änderung");refresh()};
+$("#verSave").onclick=()=>{versions.unshift({t:Date.now(),label:"Gespeichert",files:JSON.parse(JSON.stringify(files))});saveStudio();drawVers();toast("Version gespeichert ✔")};
+$("#verRestore").onclick=()=>{const v=versions[+$("#verSel").value];if(!v)return;snapshot("Vor Wiederherstellung");files=JSON.parse(JSON.stringify(v.files));saveStudio();refresh();toast("Version wiederhergestellt ✔")};
+$("#pCopy").onclick=()=>copy(files[active]??"");
+const dl=(blob,name)=>{const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;a.click()};
+$("#pDl").onclick=()=>dl(new Blob([bundle()],{type:"text/html"}),"app.html");
+$("#pWin").onclick=()=>window.open(URL.createObjectURL(new Blob([bundle()],{type:"text/html"})),"_blank");
+/* ZIP (ohne Kompression) */
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return b=>{let c=~0;for(const x of b)c=t[(c^x)&255]^(c>>>8);return(~c)>>>0}})();
+function makeZip(f){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  const u16=n=>[n&255,n>>8&255],u32=n=>[n&255,n>>8&255,n>>16&255,n>>>24];
+  for(const[name,content]of Object.entries(f)){const nb=enc.encode(name),db=enc.encode(content),crc=CRC(db);
+    const lh=new Uint8Array([0x50,0x4b,3,4,20,0,0,8,0,0,0,0,0,0,...u32(crc),...u32(db.length),...u32(db.length),...u16(nb.length),0,0,...nb]);
+    parts.push(lh,db);cd.push(new Uint8Array([0x50,0x4b,1,2,20,0,20,0,0,8,0,0,0,0,0,0,...u32(crc),...u32(db.length),...u32(db.length),...u16(nb.length),0,0,0,0,0,0,0,0,0,0,0,0,...u32(off),...nb]));off+=lh.length+db.length}
+  const cdSize=cd.reduce((a,b)=>a+b.length,0);
+  return new Blob([...parts,...cd,new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...u16(cd.length),...u16(cd.length),...u32(cdSize),...u32(off),0,0])],{type:"application/zip"})}
+$("#pZip").onclick=()=>Object.keys(files).length?dl(makeZip(files),"projekt.zip"):toast("Noch kein Projekt");
 
 /* ---------- Bilder ---------- */
 function drawImages(){$("#igrid").innerHTML=S.images.map((im,i)=>`<div class="card"><img loading="lazy" src="${im.url}" alt="${esc(im.p)}"><div><span title="${esc(im.p)}">${esc(im.p.slice(0,32))}</span><a href="${im.url}" target="_blank" rel="noopener" download>⬇</a><button data-rm="${i}" style="padding:0 6px">✕</button></div></div>`).join("")}
@@ -412,7 +452,7 @@ $("#model").onchange=e=>{S.model=e.target.value;save()};
 fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const n=l.map(x=>x.name||x).filter(Boolean);if(n.length){if(!n.includes(S.model))S.model=n[0];fillModels(n)}}).catch(()=>{});
 
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
-drawChat();drawImages();drawStudio();
+drawChat();drawImages();drawStudio();refresh();
 </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-Key, ohne Build.
 
 - 💬 **Chat** (ChatGPT/Claude-Stil, Streaming, Verlauf, Markdown, Codeblöcke)
-- 🧩 **Studio mit Live-Vorschau** (wie Claude Artifacts / ChatGPT Canvas): Apps & Seiten beschreiben, rechts sofort ansehen, Code bearbeiten, herunterladen
+- 🧩 **Studio mit Live-Vorschau** (wie Claude Artifacts / ChatGPT Canvas): Apps beschreiben, rechts sofort ansehen. Mehrere Dateien (HTML/CSS/JS), Code-Editor, Versionsverlauf mit Wiederherstellen, Export als ZIP oder einzelne HTML
 - 📎 **Dateien, PDFs & Bilder** anhängen (auch Einfügen/Drag&Drop): zusammenfassen, Fragen stellen, Bildverständnis/OCR
 - 🔎 **Websuche mit Quellen** (Wikipedia de/en, mit Zitaten)
 - 🪄 **Prompt-Agent** (`prompt.html`, eigenes kleines Fenster): beschreibt dein Ziel, der Agent fragt nach und baut den passenden Prompt für Chat, Code, Bild, Text, Recherche oder Video/Musik und schickt ihn an die Haupt-App
