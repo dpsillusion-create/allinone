@@ -6,6 +6,8 @@
   if (location.protocol === "file:") return;
   var L = localStorage, rawSet = Storage.prototype.setItem, rawDel = Storage.prototype.removeItem, rawGet = Storage.prototype.getItem;
   var known = {}, timers = {}, pending = {};
+  // Den „Neu laden“-Hinweis nur für Daten zeigen, die die aktuelle Seite wirklich nutzt (Prompt-Agent-Verlauf stört die Haupt-App nicht)
+  var WATCH = /prompt\.html$/.test(location.pathname) ? ["aioPrompts"] : ["aio", "aioStudioFiles", "aioStudioVers"];
   var get = function (k) { try { return rawGet.call(L, k); } catch (e) { return null; } };
   var set = function (k, v) { try { rawSet.call(L, k, v); } catch (e) {} };
   var del = function (k) { try { rawDel.call(L, k); } catch (e) {} };
@@ -67,7 +69,7 @@
       if (xx.status === 401) return toLogin(false);
       if (xx.status !== 200) return;
       var m = J(xx).mtime || {};
-      for (var k in m) if (KEYS.indexOf(k) >= 0 && known[k] !== m[k] && !pending[k]) { S.changed = true; banner(); return; }
+      for (var k in m) if (WATCH.indexOf(k) >= 0 && known[k] !== m[k] && !pending[k]) { S.changed = true; banner(); return; }
     };
     xx.send();
   }

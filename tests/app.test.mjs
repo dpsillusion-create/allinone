@@ -88,6 +88,41 @@ test('Studio: mehrere Dateien, Vorschau, Änderung, Versionen, Wiederherstellen,
   noErrors(p);
 });
 
+test('Studio: Dateinamen der KI werden in allen üblichen Schreibweisen erkannt', async () => {
+  const p = await open(() => 'x');
+  const cases = {
+    'FILE: index.html\n```html\n<h1>A</h1>\n```': ['index.html'],
+    '**FILE: index.html**\n```html\n<h1>A</h1>\n```': ['index.html'],            // Fett (der Fehler aus der Praxis)
+    'FILE: **index.html**\n```html\n<h1>A</h1>\n```': ['index.html'],
+    'FILE: `style.css`\n```css\nh1{}\n```\nFILE: `index.html`\n```html\n<h1/>\n```': ['style.css', 'index.html'],
+    '### style.css\n```css\nh1{}\n```\n**index.html**\n```html\n<h1/>\n```': ['style.css', 'index.html'],
+    '// FILE: script.js\n```js\nlet a\n```\nFILE: index.html\n```html\n<p/>\n```': ['script.js', 'index.html'],
+    'file: ./index.html\n```html\n<h1>x</h1>\n```': ['index.html'],
+    'Hier dein Code:\n```html\n<!doctype html><h1>nur Codeblock</h1>\n```': ['index.html'],   // ohne Dateinamen
+    'FILE: seite.html\n```html\n<h1>x</h1>\n```': ['index.html'],                      // einzige HTML-Datei wird zum Einstieg
+    'FILE: index.html\n```html\n<h1>halb fer': ['index.html'],                           // noch im Stream
+  };
+  for (const [input, expected] of Object.entries(cases)) {
+    const got = await p.evaluate(s => Object.keys(parseReply(s).files), input);
+    assert.deepEqual(got, expected, JSON.stringify(input));
+  }
+  const r = await p.evaluate(() => parseReply('**\nFILE: index.html**\n```html\n<h1>x</h1>\n```'));
+  assert.equal(r.intro, '', 'übrig gebliebene ** gehören nicht in den Text');
+  const none = await p.evaluate(() => parseReply('Nur Text, kein Code.'));
+  assert.deepEqual(none, { files: {}, intro: 'Nur Text, kein Code.' });
+});
+
+test('Studio: Projekt mit fehlerhaftem Dateinamen (index.html**) wird repariert, fehlende index.html erklärt', async () => {
+  const p = await open(() => 'x');
+  await p.evaluate(() => localStorage.setItem('aioStudioFiles', JSON.stringify({ 'index.html**': '<h1 id=x>Gerettet</h1>' })));
+  await p.reload(); await p.click('[data-v=studio]');
+  const frameText = async () => { await p.waitForTimeout(400); const f = p.frames().find(x => x !== p.mainFrame()); return f ? f.evaluate(() => document.body.innerText) : ''; };
+  assert.match(await frameText(), /Gerettet/);
+  await p.evaluate(() => { files = { 'style.css': 'h1{}' }; refresh(); });
+  assert.match(await frameText(), /braucht eine Datei\s+index\.html\./);
+  noErrors(p);
+});
+
 test('Schreibwerkstatt: Werkzeug ausführen', async () => {
   const p = await open(() => 'Ergebnis **fertig**');
   await p.click('[data-v=write]'); await p.click('.tool'); await p.fill('#tpIn', 'x'); await p.click('#tpGo');

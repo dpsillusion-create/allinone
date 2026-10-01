@@ -13,10 +13,39 @@ function drawVers(){$("#verSel").innerHTML=versions.length?versions.map((v,i)=>`
 function drawFiles(){const names=Object.keys(files);
   $("#ftabs").innerHTML=names.map(n=>`<button class="${n===active?"on":""}" data-f="${esc(n)}">${esc(n)}</button>`).join("")+'<button id="fAdd" title="Datei hinzufügen">＋</button><button id="fDel" title="Aktive Datei löschen">🗑</button>';
   $("#code").value=files[active]??""}
-function refresh(){if(!(active in files))active=Object.keys(files)[0]||"index.html";const b=bundle();$("#frame").srcdoc=b||"<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0'>Hier erscheint deine Vorschau</body>";drawFiles();drawVers()}
+function refresh(){normalizeFiles();if(!(active in files))active=Object.keys(files)[0]||"index.html";const b=bundle(),names=Object.keys(files);
+  const ph=m=>`<body style='font-family:system-ui;color:#888;display:grid;place-items:center;height:100vh;margin:0;text-align:center;padding:20px'><div>${m}</div></body>`;
+  $("#frame").srcdoc=b||ph(names.length?"Die Vorschau braucht eine Datei <b>index.html</b>.<br>Vorhandene Dateien: "+names.map(esc).join(", ")+"<br>Tipp: Bitte die KI, „index.html“ zu erzeugen.":"Hier erscheint deine Vorschau");
+  drawFiles();drawVers()}
 function setPreview(html){files={"index.html":html};active="index.html";snapshot("Aus Chat übernommen");refresh()} // von Chat-Codeblöcken genutzt
-function parseFiles(t){const out={};t.replace(/FILE:\s*`?([^\s`]+)`?\s*\n```[\w+-]*\n([\s\S]*?)(```|$)/g,(_,n,c)=>{out[n.replace(/^\.?\//,"")]=c.replace(/\n$/,"")});
-  if(!Object.keys(out).length){const m=t.match(/```html\n([\s\S]*?)(```|$)/);if(m)out["index.html"]=m[1].replace(/\n$/,"")}return out}
+/** Dateiname bereinigen: Markdown-Zeichen (**fett**, `code`), Kommentarzeichen und führendes ./ entfernen */
+const cleanName=n=>String(n).replace(/[*_`"'#]/g,"").replace(/^\s*(\/\/|<!--)/,"").replace(/-->\s*$/,"").replace(/^\s*\.?\//,"").trim();
+/** Antwort der KI zerlegen: Dateien (Name + Codeblock) und der Einleitungstext davor.
+    Erkennt „FILE: x“, „**FILE: x**“, „### x.css“, „// FILE: x“, einen Dateinamen allein in einer Zeile – und als Notlösung einen einzelnen ```html-Block. */
+function parseReply(t){
+  const files={},lines=t.split("\n");let name=null,gap=9,buf=null,first=-1;
+  const commit=()=>{
+    if(!buf)return;const code=buf.lines.join("\n").replace(/\n$/,"");
+    if(buf.name)files[buf.name]=code;else if(/^(html?|)$/.test(buf.lang)&&!files["index.html"]&&/<\w/.test(code))files["index.html"]=code;
+    buf=null};
+  lines.forEach((l,i)=>{
+    if(buf){if(/^\s*```\s*$/.test(l))commit();else buf.lines.push(l);return}
+    let m=l.match(/^\s*(?:\/\/|#+|<!--)?\s*[*_`]*\s*(?:FILE|DATEI)\s*:\s*(.+?)\s*$/i);
+    if(m){name=cleanName(m[1]);gap=0;if(first<0)first=i;return}
+    m=l.match(/^\s*[#*_`\s]*(\w[\w./-]*\.(?:html?|css|m?js|json|svg|txt|md))[*_`:\s]*$/i);
+    if(m){name=cleanName(m[1]);gap=0;if(first<0)first=i;return}
+    m=l.match(/^\s*```([\w+-]*)\s*$/);
+    if(m){buf={lang:m[1].toLowerCase(),name:gap<=2?name:null,lines:[]};name=null;if(first<0)first=i;return}
+    gap++});
+  commit();
+  if(!files["index.html"]){const h=Object.keys(files).filter(n=>/\.html?$/i.test(n));if(h.length===1){files["index.html"]=files[h[0]];if(h[0]!=="index.html")delete files[h[0]]}}
+  const intro=(first<0?t:lines.slice(0,first).join("\n")).replace(/^[\s*_`#-]+$/gm,"").trim();
+  return{files,intro}}
+const parseFiles=t=>parseReply(t).files;
+/** Bereits gespeicherte Projekte reparieren (z. B. Dateiname „index.html**“ aus älteren Antworten) */
+function normalizeFiles(){
+  for(const k of Object.keys(files)){const c=cleanName(k);if(c&&c!==k&&!(c in files)){files[c]=files[k];delete files[k]}}
+  if(!files["index.html"]){const h=Object.keys(files).filter(n=>/\.html?$/i.test(n));if(h.length===1){files["index.html"]=files[h[0]];delete files[h[0]]}}}
 function drawStudio(){const box=$("#smsgs");box.innerHTML=studioMsgs.length?"":`<div class="empty"><h2>Baue Apps per Beschreibung</h2>Wie Claude Artifacts / ChatGPT Canvas: Beschreibe es – rechts siehst du sofort das Ergebnis, mit mehreren Dateien, Versionsverlauf und ZIP-Export.<div class="chips">${["Snake-Spiel","Todo-App mit Dunkelmodus","Taschenrechner","Portfolio-Landingpage"].map(s=>`<button>${s}</button>`).join("")}</div></div>`;
   box.querySelectorAll(".chips button").forEach(b=>b.onclick=()=>{$("#sinp").value=b.textContent+" bauen";sendStudio()});
   studioMsgs.forEach(m=>addMsg(box,m.role,m.content))}
@@ -29,9 +58,10 @@ async function sendStudio(){
   try{full=await ask([{role:"system",content:STUDIO_SYS+proj},...ctxMsgs],t=>{full=t;const n=Object.keys(parseFiles(t));
       out.textContent=n.length?"✍️ Schreibe: "+n.join(", ")+" …":"💭 Denkt nach …";box.scrollTop=box.scrollHeight},undefined,undefined,()=>{out.textContent="💭 Denkt nach …"})}
   catch(e){full="⚠️ Fehler: "+e.message}
-  out.classList.remove("dots");const nf=parseFiles(full);let reply=full;
+  out.classList.remove("dots");const pr=parseReply(full),nf=pr.files;let reply=full;
   if(Object.keys(nf).length){snapshot("Vor: "+text.slice(0,24));Object.assign(files,nf);active=nf["index.html"]!=null?"index.html":Object.keys(nf)[0];snapshot(text.slice(0,30));refresh();
-    reply=full.replace(/FILE:[\s\S]*$/,"").replace(/```[\s\S]*$/,"").trim()+"\n\n✅ Aktualisiert: "+Object.keys(nf).map(n=>"`"+n+"`").join(", ")}
+    reply=pr.intro+"\n\n✅ Aktualisiert: "+Object.keys(nf).map(n=>"`"+n+"`").join(", ")}
+  else if(!full.startsWith("⚠️"))reply=full+"\n\n⚠️ Ich konnte in der Antwort keine Dateien erkennen. Formuliere den Wunsch bitte nochmal oder bitte die KI um „den kompletten Code als HTML-Datei“."
   render(out,reply);studioMsgs.push({role:"assistant",content:reply});$("#ssend").disabled=false}
 $("#ssend").onclick=sendStudio;
 $("#sinp").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendStudio()}});
