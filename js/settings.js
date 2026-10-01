@@ -14,8 +14,20 @@ $("#cfg").onclick=()=>{storeInfo();$("#sys").value=S.sys;$("#speak").checked=S.s
 $("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
 $("#exp").onclick=()=>{const md=S.chats.map(c=>"# "+c.title+"\n\n"+c.msgs.map(m=>"**"+(m.role==="user"?"Du":"KI")+":** "+(m.display??m.content)).join("\n\n")).join("\n\n---\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download="chats.md";a.click()};
 $("#wipe").onclick=()=>{if(confirm("Alle Chats, Bilder, Projekte und Prompts dieses Kontos löschen (auch auf dem Server)?")){(window.AIO_KEYS||["aio"]).forEach(k=>{try{localStorage.removeItem(k)}catch{}});location.reload()}};
-function fillModels(list){window.AIO_MODELS=list;if(typeof fillCompare==="function")fillCompare(list);$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
+/** Modellauswahl: Pollinations (gratis, ohne Schlüssel) + Modelle der vom Admin eingerichteten Anbieter, gruppiert */
+function fillModels(list){
+  window.AIO_MODELS=list;if(typeof fillCompare==="function")fillCompare(list);
+  const groups=[];list.forEach(m=>{const g=(modelInfo(m)||{}).group||"Pollinations (gratis)";let x=groups.find(y=>y.g===g);if(!x)groups.push(x={g,items:[]});x.items.push(m)});
+  $("#model").innerHTML=groups.map(x=>`<optgroup label="${esc(x.g)}">${x.items.map(m=>`<option value="${esc(m)}" ${m===S.model?"selected":""}>${esc(modelLabel(m))}</option>`).join("")}</optgroup>`).join("")}
 fillModels(["openai-fast"]);
 $("#model").onchange=e=>{S.model=e.target.value;save()};
-fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const info={};l.forEach(x=>{[x.name,...(x.aliases||[])].forEach(n=>info[n]=x)});window.AIO_MODEL_INFO=info;
-  const n=l.map(x=>x.name||x).filter(Boolean);if(n.length){if(!n.includes(S.model)&&!info[S.model])S.model=n[0];fillModels(n)}}).catch(()=>{});
+let pollModels=[],proxModels=[];
+function rebuildModels(){
+  const info={};
+  pollModels.forEach(x=>{[x.name,...(x.aliases||[])].forEach(n=>info[n]={...x,group:"Pollinations (gratis, ohne Schlüssel)",label:x.name})});
+  proxModels.forEach(x=>{info[x.id]={...x,group:x.provider+(x.free?" – gratis":""),label:x.name+(x.free?" 🆓":" 💳")}});
+  window.AIO_MODEL_INFO=info;
+  const ids=[...pollModels.map(x=>x.name),...proxModels.map(x=>x.id)];
+  if(ids.length){if(!ids.includes(S.model)&&!info[S.model])S.model=ids[0];fillModels(ids)}}
+fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{pollModels=l;rebuildModels()}).catch(()=>{});
+if(AS().server)fetch("/api/ai/models").then(r=>r.ok?r.json():null).then(d=>{if(d){proxModels=d.models||[];rebuildModels();(d.errors||[]).forEach(e=>toast("⚠️ "+e.provider+": "+e.error))}}).catch(()=>{});

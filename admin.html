@@ -12,6 +12,25 @@
     <div class="scroll"><table><thead><tr><th>Name</th><th>Rolle</th><th>Status</th><th>Letzter Login</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
     <div class="msg2" id="m0" role="alert"></div></div>
 
+  <div class="card2"><h2>KI-Anbieter</h2>
+    <p class="sub">Zusätzlich zu den Gratis-Modellen von Pollinations kannst du Anbieter wie <b>OpenRouter</b> einrichten. Der API-Schlüssel bleibt auf dem Server – deine Nutzer sehen ihn nie. Bei OpenRouter kannst du auf <b>kostenlose Modelle</b> beschränken. Claude (Anthropic) und andere starke Modelle sind <b>nicht kostenlos</b> – sie verbrauchen das Guthaben deines Schlüssels.</p>
+    <div class="scroll"><table><thead><tr><th>Name</th><th>Typ</th><th>Schlüssel</th><th>Zugriff</th><th></th></tr></thead><tbody id="provRows"></tbody></table></div>
+    <div class="msg2" id="mp0" role="alert"></div></div>
+
+  <form class="card2" id="fProv" autocomplete="off">
+    <h2>Anbieter hinzufügen</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+      <div><label for="pt">Typ</label><select id="pt"><option value="openrouter">OpenRouter (kostenlose Modelle möglich)</option><option value="anthropic">Anthropic / Claude (kostenpflichtig)</option><option value="openai">Anderer OpenAI-kompatibler Anbieter</option></select></div>
+      <div><label for="pn">Name</label><input id="pn" required maxlength="40" value="OpenRouter"></div>
+      <div id="pbw" style="display:none"><label for="pb">Adresse (Basis-URL)</label><input id="pb" placeholder="https://…/v1"></div>
+      <div><label for="pk">API-Schlüssel</label><input id="pk" type="password" required autocomplete="new-password"></div>
+      <div><label for="ps">Wer darf es nutzen?</label><select id="ps"><option value="all">Alle Konten</option><option value="admin">Nur Administratoren</option></select></div>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:12px" id="pfw"><input type="checkbox" id="pf" checked style="width:auto"> Nur kostenlose Modelle erlauben (empfohlen)</label>
+    <div class="row2"><button class="primary">Anbieter speichern</button></div>
+    <div class="msg2" id="mp1" role="alert"></div>
+  </form>
+
   <form class="card2" id="fNew" autocomplete="off">
     <h2>Neues Konto</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
@@ -48,5 +67,29 @@ $("#gen").onclick=()=>{$("#n2").value=genPw()};
 $("#fNew").onsubmit=async e=>{e.preventDefault();const r=await api("POST","/api/admin/users",{name:$("#n1").value.trim(),password:$("#n2").value,role:$("#n3").value});
   if(r.status===200){say($("#m1"),"Konto „"+r.data.user.name+"“ angelegt ✔ – gib Name und Start-Passwort weiter; beim ersten Login wird ein eigenes Passwort verlangt.",true);$("#fNew").reset();load()}else say($("#m1"),r.data.error||"Fehler")};
 $("#out").onclick=logout;
+/* ---- KI-Anbieter ---- */
+const TYPE={openrouter:"OpenRouter",anthropic:"Anthropic",openai:"OpenAI-kompatibel"};
+const PRESET={openrouter:{name:"OpenRouter",scope:"all",free:true},anthropic:{name:"Anthropic Claude",scope:"admin",free:false},openai:{name:"Eigener Anbieter",scope:"admin",free:false}};
+let provs=[];
+async function loadProv(){const r=await api("GET","/api/admin/providers");if(r.status!==200)return;provs=r.data.providers;
+  $("#provRows").innerHTML=provs.length?provs.map(p=>`<tr data-id="${p.id}"><td><b>${esc(p.name)}</b><div style="font-size:12px;color:var(--muted)">${esc(p.base)}</div></td>
+    <td>${TYPE[p.type]}${p.only_free?' <span class="tag">nur gratis</span>':""}</td><td><code>${esc(p.key_hint||"–")}</code></td>
+    <td>${p.scope==="all"?"Alle Konten":"Nur Admins"}${p.enabled?"":' <span class="tag off">aus</span>'}</td>
+    <td><div class="acts"><button data-a="test">Testen</button><button data-a="key">Schlüssel ändern</button><button data-a="scope">Zugriff ändern</button><button data-a="toggle">${p.enabled?"Ausschalten":"Einschalten"}</button><button class="danger" data-a="del">Entfernen</button></div></td></tr>`).join(""):'<tr><td colspan="5" style="color:var(--muted)">Noch kein Anbieter eingerichtet – es werden nur die Gratis-Modelle von Pollinations genutzt.</td></tr>'}
+$("#provRows").onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;const p=provs.find(x=>x.id===b.closest("tr").dataset.id),a=b.dataset.a,m=$("#mp0");m.textContent="";
+  const save=extra=>api("POST","/api/admin/providers",{id:p.id,type:p.type,name:p.name,base:p.base,scope:p.scope,enabled:p.enabled,only_free:p.only_free,...extra});
+  let r;
+  if(a==="test"){say(m,"Teste Verbindung …",true);r=await api("POST","/api/admin/providers/"+p.id+"/test");
+    if(r.status===200&&r.data.ok)say(m,`Verbindung ok ✔ – ${r.data.count} Modelle verfügbar${p.type==="openrouter"?` (davon ${r.data.free} kostenlos)`:""}.`,true);else say(m,(r.data&&r.data.error)||"Test fehlgeschlagen");return}
+  if(a==="key"){const v=await modal("Neuen Schlüssel für „"+p.name+"“",[{id:"k",label:"API-Schlüssel",type:"password"}]);if(!v||!v.k.trim())return;r=await save({key:v.k.trim()})}
+  else if(a==="scope")r=await save({scope:p.scope==="all"?"admin":"all"});
+  else if(a==="toggle")r=await save({enabled:!p.enabled});
+  else if(a==="del"){if(!confirm("Anbieter „"+p.name+"“ entfernen? Der gespeicherte Schlüssel wird gelöscht."))return;r=await api("DELETE","/api/admin/providers/"+p.id)}
+  if(r.status===200){say(m,"Gespeichert ✔",true);loadProv()}else say(m,r.data.error||"Fehler")};
+$("#pt").onchange=()=>{const t=$("#pt").value,pr=PRESET[t];$("#pn").value=pr.name;$("#ps").value=pr.scope;$("#pf").checked=pr.free;$("#pfw").style.display=t==="openrouter"?"":"none";$("#pbw").style.display=t==="openai"?"":"none";$("#pb").required=t==="openai"};
+$("#fProv").onsubmit=async e=>{e.preventDefault();const t=$("#pt").value;
+  const r=await api("POST","/api/admin/providers",{type:t,name:$("#pn").value.trim(),base:t==="openai"?$("#pb").value.trim():undefined,key:$("#pk").value.trim(),scope:$("#ps").value,only_free:$("#pf").checked});
+  if(r.status===200){say($("#mp1"),"Anbieter gespeichert ✔ – mit „Testen“ prüfst du die Verbindung. Die Modelle erscheinen in der Modellauswahl nach dem Neuladen der App.",true);$("#pk").value="";loadProv()}else say($("#mp1"),r.data.error||"Fehler")};
+loadProv();
 load();
 </script></body></html>

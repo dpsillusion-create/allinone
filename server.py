@@ -7,6 +7,7 @@ Nur Python-Standardbibliothek. Konfiguration über Umgebungsvariablen:
 Admin-Passwort vergessen:  python3 server.py --reset-admin-password [neues-passwort]
 """
 import hashlib, hmac, json, os, re, secrets, shutil, sys, tempfile, threading, time
+import urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -34,6 +35,17 @@ PUBLIC = {"login.html", "sw.js", "manifest.webmanifest", "icon.svg", "css/theme.
 ADMIN_ONLY = {"admin.html"}
 lock = threading.RLock()
 USERS_F, SESS_F, INIT_F = DATA / "_users.json", DATA / "_sessions.json", DATA / "INITIAL_ADMIN_PASSWORD.txt"
+PROV_F = DATA / "_providers.json"
+PRESETS = {  # KI-Anbieter, die der Admin einrichten kann (Schlüssel bleiben auf dem Server)
+    "openrouter": {"base": "https://openrouter.ai/api/v1", "scope": "all", "only_free": True},
+    "anthropic": {"base": "https://api.anthropic.com/v1", "scope": "admin", "only_free": False},
+    "openai": {"base": "", "scope": "admin", "only_free": False},
+}
+ANTHROPIC_MODELS = ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-4-5-20251001"]
+MODEL_TTL = 600
+providers = []            # Liste von Anbietern (siehe PRESETS)
+model_cache = {}          # Anbieter-ID -> (Zeitpunkt, Modellliste)
+ai_busy = {}              # Benutzer-ID -> laufende KI-Anfragen
 users = {}      # uid -> {"id","name","role","pw":{salt,hash,iter}|None,"must_change","disabled","dir","created","last_login"}
 sessions = {}   # sha256(token) -> {"uid","exp","created"}
 attempts = {}   # Schlüssel -> (Fehlversuche, gesperrt bis)
@@ -225,6 +237,93 @@ def reset_admin(new_pw=None):
     return 0
 
 
+# ---------- KI-Anbieter (OpenRouter & Co.) ----------
+def load_providers():
+    global providers
+    providers = read_json(PROV_F, [])
+
+
+def save_providers():
+    write_json(PROV_F, providers)
+    model_cache.clear()
+
+
+def prov_public(p):
+    k = p.get("key", "")
+    return {"id": p["id"], "type": p["type"], "name": p["name"], "base": p["base"], "enabled": p.get("enabled", True),
+            "only_free": bool(p.get("only_free")), "scope": p.get("scope", "admin"), "has_key": bool(k), "key_hint": ("…" + k[-4:]) if len(k) >= 8 else ("gesetzt" if k else "")}
+
+
+def prov_visible(p, user):
+    return p.get("enabled", True) and p.get("key") and (p.get("scope") == "all" or user["role"] == "admin")
+
+
+def prov_request(p, path, body=None, timeout=30):
+    h = {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": "Mercyverse/1.0"}
+    if p["key"]:
+        h["Authorization"] = "Bearer " + p["key"]
+        if p["type"] == "anthropic":
+            h["x-api-key"], h["anthropic-version"] = p["key"], "2023-06-01"
+    if p["type"] == "openrouter":
+        h["HTTP-Referer"], h["X-Title"] = "https://github.com/dpsillusion-create/allinone", "MERCYVERSE"
+    req = urllib.request.Request(p["base"].rstrip("/") + path, data=json.dumps(body).encode() if body is not None else None,
+                                 headers=h, method="POST" if body is not None else "GET")
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def fetch_models(p, force=False):
+    """Modelle eines Anbieters (10 Minuten zwischengespeichert). Gibt (Liste, Fehlertext|None) zurück."""
+    now = time.time()
+    c = model_cache.get(p["id"])
+    if c and not force and now - c[0] < MODEL_TTL:
+        return c[1], None
+    out, err = [], None
+    try:
+        if p["type"] == "anthropic":
+            try:
+                data = json.loads(prov_request(p, "/models").read()).get("data", [])
+                ids = [m["id"] for m in data if str(m.get("id", "")).startswith("claude")] or ANTHROPIC_MODELS
+            except Exception:
+                ids = ANTHROPIC_MODELS
+            out = [{"id": i, "name": i, "free": False, "vision": True, "tools": True} for i in ids]
+        else:
+            data = json.loads(prov_request(p, "/models").read()).get("data", [])
+            for m in data:
+                mid = str(m.get("id", ""))
+                if not mid:
+                    continue
+                pr = m.get("pricing") or {}
+                try:
+                    free = float(pr.get("prompt", "1")) == 0 and float(pr.get("completion", "1")) == 0 if p["type"] == "openrouter" else False
+                except (TypeError, ValueError):
+                    free = False
+                mods = (m.get("architecture") or {}).get("input_modalities")
+                sp = m.get("supported_parameters")
+                out.append({"id": mid, "name": m.get("name") or mid, "free": free, "context": m.get("context_length"),
+                            "vision": ("image" in mods) if isinstance(mods, list) else None,
+                            "tools": ("tools" in sp) if isinstance(sp, list) else None})
+            if p.get("only_free"):
+                out = [m for m in out if m["free"]]
+            out.sort(key=lambda m: (not m["free"], m["name"].casefold()))
+    except Exception as e:  # Netz, Schlüssel, Format
+        err = describe_upstream_error(e)
+    if not err:
+        model_cache[p["id"]] = (now, out)
+    return out, err
+
+
+def describe_upstream_error(e):
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code in (401, 403):
+            return "Der Anbieter hat den Schlüssel abgelehnt (Status %d)." % e.code
+        if e.code == 402:
+            return "Beim Anbieter ist das Guthaben aufgebraucht (Status 402)."
+        if e.code == 429:
+            return "Das Limit des Anbieters ist erreicht (Status 429). Bitte kurz warten."
+        return "Der Anbieter meldet einen Fehler (Status %d)." % e.code
+    return "Der Anbieter ist nicht erreichbar."
+
+
 # ---------- HTTP ----------
 class Handler(BaseHTTPRequestHandler):
     server_version = "Mercyverse"
@@ -349,6 +448,10 @@ class Handler(BaseHTTPRequestHandler):
             if user["role"] != "admin":
                 return self.err(403, "Nur für Administratoren.")
             return self.admin(user, path)
+        if path == "/api/ai/models" and self.command == "GET":
+            return self.ai_models(user)
+        if path == "/api/ai/chat" and self.command == "POST":
+            return self.ai_chat(user)
         m = re.fullmatch(r"/api/store(?:/([^/]+))?", path)
         if m:
             return self.store(user, m.group(1), u.query)
@@ -461,7 +564,63 @@ class Handler(BaseHTTPRequestHandler):
     def last_admin(self, uid):
         return not any(x["role"] == "admin" and not x.get("disabled") and x["id"] != uid for x in users.values())
 
+    def admin_providers(self, path):
+        global providers
+        if path == "/api/admin/providers" and self.command == "GET":
+            return self.send(200, {"providers": [prov_public(p) for p in providers]})
+        if path == "/api/admin/providers" and self.command == "POST":
+            d = self.body_json()
+            typ = d.get("type")
+            if typ not in PRESETS:
+                return self.err(400, "Unbekannter Anbietertyp.")
+            name, base = str(d.get("name", "")).strip()[:40], str(d.get("base") or PRESETS[typ]["base"]).strip()
+            if not name:
+                return self.err(400, "Bitte einen Namen angeben.")
+            if not re.match(r"^https?://[^\s/]+", base):
+                return self.err(400, "Die Adresse muss mit http:// oder https:// beginnen.")
+            pid = str(d.get("id") or "")
+            cur = next((p for p in providers if p["id"] == pid), None)
+            if pid and not cur:
+                return self.err(404, "Anbieter nicht gefunden.")
+            if not cur and len(providers) >= 10:
+                return self.err(400, "Maximal 10 Anbieter.")
+            key = str(d.get("key", "")).strip()
+            if not cur and not key:
+                return self.err(400, "Bitte einen API-Schlüssel eingeben.")
+            scope = d.get("scope", PRESETS[typ]["scope"])
+            if scope not in ("all", "admin"):
+                return self.err(400, "Ungültiger Zugriff.")
+            rec = {"id": cur["id"] if cur else secrets.token_hex(4), "type": typ, "name": name, "base": base.rstrip("/"),
+                   "key": key or (cur or {}).get("key", ""), "enabled": bool(d.get("enabled", True)),
+                   "only_free": bool(d.get("only_free", PRESETS[typ]["only_free"])) and typ == "openrouter", "scope": scope}
+            if cur:
+                providers[providers.index(cur)] = rec
+            else:
+                providers.append(rec)
+            save_providers()
+            return self.send(200, {"provider": prov_public(rec)})
+        m = re.fullmatch(r"/api/admin/providers/([0-9a-f]{8})(/test)?", path)
+        p = next((x for x in providers if m and x["id"] == m.group(1)), None)
+        if not p:
+            return self.err(404, "Anbieter nicht gefunden.")
+        if self.command == "DELETE":
+            providers = [x for x in providers if x["id"] != p["id"]]
+            save_providers()
+            return self.send(200, {"ok": True})
+        return self.err(405, "nicht erlaubt")
+
     def admin(self, me, path):
+        if path.startswith("/api/admin/providers"):
+            t = re.fullmatch(r"/api/admin/providers/([0-9a-f]{8})/test", path)
+            if t and self.command == "POST":  # Netzwerkzugriff nie unter dem globalen Lock
+                with lock:
+                    p = next((dict(x) for x in providers if x["id"] == t.group(1)), None)
+                if not p:
+                    return self.err(404, "Anbieter nicht gefunden.")
+                models, err = fetch_models(p, force=True)
+                return self.send(200, {"ok": not err, "error": err, "count": len(models), "free": sum(1 for x in models if x["free"])})
+            with lock:
+                return self.admin_providers(path)
         with lock:
             if path == "/api/admin/users" and self.command == "GET":
                 return self.send(200, {"users": [self.admin_view(u) for u in sorted(users.values(), key=lambda x: x["created"])], "me": me["id"]})
@@ -521,6 +680,83 @@ class Handler(BaseHTTPRequestHandler):
             save_users()
             return self.send(200, {"user": self.admin_view(u)})
 
+    # --- KI über Anbieter (Schlüssel bleiben auf dem Server)
+    def ai_models(self, user):
+        with lock:
+            visible = [p for p in providers if prov_visible(p, user)]
+        out, errors = [], []
+        for p in visible:
+            models, err = fetch_models(p)
+            if err:
+                errors.append({"provider": p["name"], "error": err})
+            for m in models:
+                out.append({**m, "id": f"p:{p['id']}:{m['id']}", "provider": p["name"]})
+        self.send(200, {"models": out, "errors": errors})
+
+    def ai_chat(self, user):
+        try:
+            n = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return self.err(400, "Content-Length fehlt")
+        if n > 15 * 1024 * 1024:
+            return self.err(413, "Anfrage zu groß")
+        try:
+            d = json.loads(self.rfile.read(n) or b"{}")
+        except Exception:
+            return self.err(400, "Ungültige Anfrage")
+        m = re.fullmatch(r"p:([0-9a-f]{8}):(.+)", str(d.get("model", "")))
+        msgs = d.get("messages")
+        if not m or not isinstance(msgs, list) or not msgs:
+            return self.err(400, "Modell oder Nachrichten fehlen.")
+        with lock:
+            p = next((x for x in providers if x["id"] == m.group(1)), None)
+            if not p or not prov_visible(p, user):
+                return self.err(403, "Dieser Anbieter ist für dich nicht verfügbar.")
+            if ai_busy.get(user["id"], 0) >= 3:
+                return self.err(429, "Zu viele gleichzeitige Anfragen – bitte kurz warten.")
+            ai_busy[user["id"]] = ai_busy.get(user["id"], 0) + 1
+        try:
+            mid = m.group(2)
+            if p.get("only_free"):
+                models, _ = fetch_models(p)
+                if not any(x["id"] == mid and x["free"] for x in models):
+                    return self.err(403, "Dieses Modell ist nicht kostenlos – der Anbieter ist auf Gratis-Modelle beschränkt.")
+            body = {"model": mid, "messages": msgs, "stream": bool(d.get("stream", True))}
+            for k in ("temperature", "max_tokens"):
+                if isinstance(d.get(k), (int, float)):
+                    body[k] = d[k]
+            try:
+                resp = prov_request(p, "/chat/completions", body, timeout=60)
+            except urllib.error.HTTPError as e:
+                code = e.code if e.code in (429, 402) else 502 if e.code in (401, 403) else e.code if e.code < 500 else 502
+                detail = ""
+                try:
+                    detail = json.loads(e.read()).get("error", {}).get("message", "")
+                except Exception:
+                    pass
+                return self.err(code, describe_upstream_error(e) + (" " + str(detail)[:160] if detail and e.code not in (401, 403) else ""))
+            except Exception as e:
+                return self.err(502, describe_upstream_error(e))
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8" if body["stream"] else "application/json")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            try:
+                while True:
+                    chunk = resp.read1(4096)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+                pass
+            finally:
+                resp.close()
+        finally:
+            with lock:
+                ai_busy[user["id"]] = max(0, ai_busy.get(user["id"], 1) - 1)
+
     # --- Datenspeicher des eigenen Kontos
     def store(self, user, key, query):
         d = DATA / user["dir"]
@@ -578,6 +814,7 @@ if __name__ == "__main__":
         rest = [a for a in sys.argv[1:] if not a.startswith("--")]
         sys.exit(reset_admin(rest[0] if rest else None))
     init_accounts()
+    load_providers()
     srv = ThreadingHTTPServer((BIND, PORT), Handler)
     print(f"MERCYVERSE läuft auf http://{BIND}:{PORT} · Daten: {DATA}", flush=True)
     try:

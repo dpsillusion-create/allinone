@@ -53,7 +53,7 @@ const $=s=>document.querySelector(s);
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const S={model:(LS.get("aio",{}).model)||"openai-fast"},toast=t=>st(t);
-fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const info={};l.forEach(x=>{[x.name,...(x.aliases||[])].forEach(n=>info[n]=x)});window.AIO_MODEL_INFO=info;window.AIO_MODELS=l.map(x=>x.name);if(!info[S.model])S.model=l[0].name}).catch(()=>{});
+fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const info={};l.forEach(x=>{[x.name,...(x.aliases||[])].forEach(n=>info[n]=x)});window.AIO_MODEL_INFO=info;window.AIO_MODELS=l.map(x=>x.name);if(!info[S.model]&&!isProxied(S.model))S.model=l[0].name}).catch(()=>{});
 /** KI-Aufruf des Agenten über die gemeinsame Schicht (Timeout, Wiederholung, „Denkt nach“-Anzeige) */
 const agent=(system,user,onTok)=>ask([{role:"system",content:system},{role:"user",content:user}],onTok||(()=>{}),undefined,undefined,()=>st("💭 Der Agent denkt nach …"));
 const HINT={

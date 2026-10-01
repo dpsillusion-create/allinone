@@ -9,6 +9,7 @@ Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-
 - 🪄 **Prompt-Agent** (`prompt.html`, eigenes kleines Fenster, mit Bild-/Datei-/PDF-Anhängen als Vorlage): beschreibt dein Ziel, der Agent fragt nach und baut den passenden Prompt für Chat, Code, Bild, Text, Recherche oder Video/Musik und schickt ihn an die Haupt-App
 - 📱 **Installierbar als App (PWA)**, Chat-Export als Markdown
 - 🗺️ **Diagramme & Mindmaps** (Mermaid, SVG/PNG-Export) · 📊 **Daten & Charts** (CSV laden, Fragen stellen, Diagramme) · ⚖️ **Modell-Vergleich** nebeneinander
+- 🔌 **KI-Anbieter** (Admin): OpenRouter (kostenlose Modelle) oder eigener Schlüssel, Schlüssel bleiben auf dem Server
 - 🎨 **Bildgenerator** (Flux/Turbo, optional KI-Prompt-Verbesserung)
 - ✍️ **Schreibwerkstatt** (E-Mail, Zusammenfassen, Übersetzen, Korrigieren …)
 - 🎙️ **Sprache** (Diktieren & Vorlesen, nutzt Browser-Funktionen)

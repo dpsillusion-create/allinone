@@ -45,7 +45,7 @@ $("#dtChart").onclick=async()=>{const q=$("#dtQ").value.trim()||"Das aussagekrä
   catch(e){toast("Diagramm fehlgeschlagen – anders formulieren?")}finally{btn.disabled=false}};
 
 /* ---------- Modell-Vergleich ---------- */
-function fillCompare(list){const nt=$("#cpNote");if(nt)nt.style.display=list.length<2?"":"none";const used=new Set();document.querySelectorAll(".cpM").forEach((sel,i)=>{const pick=list.includes(sel.value)&&!used.has(sel.value)?sel.value:(list.find(m=>!used.has(m))||list[i%list.length]);used.add(pick);sel.innerHTML=list.map(m=>`<option ${m===pick?"selected":""}>${esc(m)}</option>`).join("")})}
+function fillCompare(list){const nt=$("#cpNote");if(nt)nt.style.display=list.length<2?"":"none";const used=new Set();document.querySelectorAll(".cpM").forEach((sel,i)=>{const pick=list.includes(sel.value)&&!used.has(sel.value)?sel.value:(list.find(m=>!used.has(m))||list[i%list.length]);used.add(pick);sel.innerHTML=list.map(m=>`<option value="${esc(m)}" ${m===pick?"selected":""}>${esc(modelLabel(m))}</option>`).join("")})}
 $("#cpGo").onclick=()=>{const q=$("#cpIn").value.trim();if(!q)return;const g=$("#cpGrid");g.innerHTML="";
   document.querySelectorAll(".cpM").forEach(sel=>{const m=sel.value,card=document.createElement("div");card.className="panel";card.innerHTML=`<b>${esc(m)}</b><div class="body"></div>`;g.appendChild(card);
     const o=card.querySelector(".body");o.classList.add("dots");let t="";
