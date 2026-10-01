@@ -1,0 +1,32 @@
+# Start:  docker compose up -d --build
+# Aufruf: http://<server-ip>:8080
+# Mit HTTPS (Mikrofon, Zwischenablage, App-Installation):
+#   AIO_HOST=<server-ip> docker compose --profile https up -d --build   ->  https://<server-ip>:8443
+services:
+  allinone:
+    build: .
+    container_name: allinone
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+
+  allinone-https:
+    profiles: ["https"]
+    image: caddy:2-alpine
+    container_name: allinone-https
+    restart: unless-stopped
+    environment:
+      AIO_HOST: ${AIO_HOST:-localhost}
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./index.html:/srv/index.html:ro
+      - ./prompt.html:/srv/prompt.html:ro
+      - ./sw.js:/srv/sw.js:ro
+      - ./manifest.webmanifest:/srv/manifest.webmanifest:ro
+      - ./icon.svg:/srv/icon.svg:ro
+      - caddy_data:/data
+
+volumes:
+  caddy_data:

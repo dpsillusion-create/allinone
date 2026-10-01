@@ -1,0 +1,8 @@
+# Optionales HTTPS im Heimnetz (eigene, lokale Zertifizierungsstelle).
+# Nötig für Mikrofon/Diktieren, Zwischenablage und App-Installation (PWA) auf anderen Geräten.
+{$AIO_HOST}:8443 {
+  tls internal
+  encode gzip
+  root * /srv
+  file_server
+}

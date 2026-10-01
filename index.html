@@ -108,6 +108,9 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <button class="nav" data-v="studio">🧩 Studio (Live-Vorschau)</button>
   <button class="nav" data-v="images">🎨 Bilder</button>
   <button class="nav" data-v="write">✍️ Schreibwerkstatt</button>
+  <button class="nav" data-v="diagram">🗺️ Diagramme & Mindmaps</button>
+  <button class="nav" data-v="data">📊 Daten & Charts</button>
+  <button class="nav" data-v="compare">⚖️ Modell-Vergleich</button>
   <button class="nav" data-v="voice">🎙️ Sprache</button>
   <button class="nav" id="openPA">🪄 Prompt-Agent ↗</button>
   <div id="hist"></div>
@@ -183,6 +186,51 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
     </div></div>
   </section>
 
+  <section class="view" id="v-diagram">
+    <div class="pad"><div class="wrap">
+      <div class="panel">
+        <textarea id="dgIn" style="width:100%;min-height:80px" placeholder="Beschreibe, was gezeichnet werden soll – z. B. „Mindmap zum Thema Gesunde Ernährung“ oder „Ablauf einer Online-Bestellung“"></textarea>
+        <div class="row"><select id="dgType"><option value="mindmap">Mindmap</option><option value="flowchart TD">Flussdiagramm</option><option value="sequenceDiagram">Sequenzdiagramm</option><option value="gantt">Zeitplan (Gantt)</option><option value="classDiagram">Klassendiagramm</option><option value="erDiagram">ER-Diagramm</option><option value="pie">Kreisdiagramm</option><option value="timeline">Zeitleiste</option></select>
+        <button class="primary" id="dgGo">Zeichnen</button></div>
+        <div class="st" id="dgSt" style="color:var(--muted);font-size:12px"></div>
+      </div>
+      <div class="panel" id="dgRes" style="display:none">
+        <div id="dgOut" style="overflow:auto;background:#fff;border-radius:8px;padding:10px;text-align:center"></div>
+        <div class="row"><button id="dgSvg">⬇ SVG</button><button id="dgPng">⬇ PNG</button><button id="dgCopy">Code kopieren</button></div>
+        <label>Mermaid-Code (editierbar)</label><textarea id="dgCode" style="min-height:140px;font-family:ui-monospace,monospace;font-size:13px"></textarea>
+        <div class="row"><button id="dgRe">Neu zeichnen</button></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="view" id="v-data">
+    <div class="pad"><div class="wrap">
+      <div class="panel">
+        <div class="row"><input type="file" id="csvFile" accept=".csv,.tsv,.txt"><span style="color:var(--muted);font-size:12px">oder Daten einfügen:</span></div>
+        <textarea id="csvIn" style="width:100%;min-height:70px" placeholder="CSV-Text hier einfügen (Komma, Semikolon oder Tab)"></textarea>
+        <div class="row"><button id="csvLoad">Daten laden</button></div>
+      </div>
+      <div class="panel" id="dtRes" style="display:none">
+        <div id="dtInfo" style="color:var(--muted);font-size:12px;margin-bottom:6px"></div>
+        <div style="overflow:auto;max-height:260px"><table id="dtTab" style="border-collapse:collapse;font-size:12px;width:100%"></table></div>
+        <div id="dtStats" style="font-size:12px;color:var(--muted);margin-top:8px"></div>
+        <div class="row"><input id="dtQ" style="flex:1;min-width:200px" placeholder="Frage zu den Daten oder Diagramm-Wunsch, z. B. „Umsatz pro Monat als Balkendiagramm“"><button class="primary" id="dtAsk">Fragen</button><button id="dtChart">📈 Diagramm</button></div>
+        <div class="body" id="dtOut"></div>
+        <div id="chWrap" style="display:none;background:#fff;border-radius:8px;padding:10px;margin-top:8px"><canvas id="chCv" height="120"></canvas></div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="view" id="v-compare">
+    <div class="pad"><div class="wrap">
+      <div class="panel">
+        <textarea id="cpIn" style="width:100%;min-height:80px" placeholder="Eine Frage – mehrere KI-Modelle antworten nebeneinander"></textarea>
+        <div class="row"><select class="cpM"></select><select class="cpM"></select><select class="cpM"></select><button class="primary" id="cpGo">Vergleichen</button></div>
+      </div>
+      <div id="cpGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"></div>
+    </div></div>
+  </section>
+
   <section class="view" id="v-voice">
     <div class="pad"><div class="wrap">
       <div class="panel"><h3 style="margin-top:0">🎙️ Sprache → Text</h3>
@@ -216,7 +264,8 @@ const API="https://text.pollinations.ai/openai";
 const LS={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function toast(t){const e=$("#toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1800)}
-const copy=t=>navigator.clipboard.writeText(t).then(()=>toast("Kopiert ✔"),()=>toast("Kopieren nicht möglich"));
+const copy=t=>{const ok=()=>toast("Kopiert ✔"),fb=()=>{try{const a=document.createElement("textarea");a.value=t;a.style.cssText="position:fixed;opacity:0";document.body.appendChild(a);a.select();const r=document.execCommand("copy");a.remove();r?ok():toast("Kopieren nicht möglich")}catch{toast("Kopieren nicht möglich")}};
+  navigator.clipboard?navigator.clipboard.writeText(t).then(ok,fb):fb()};
 
 /* ---------- Zustand ---------- */
 let S=Object.assign({chats:[],cur:null,model:"openai",sys:"Du bist ein hilfreicher, präziser KI-Assistent. Antworte in der Sprache des Nutzers.",speak:false,images:[]},LS.get("aio",{}));
@@ -225,7 +274,7 @@ let studioMsgs=[], lastHtml="", ctrl=null;
 const STUDIO_SYS="Du bist ein Webentwickler. Antworte sehr kurz (1-2 Sätze) und liefere das Projekt als Dateien. Jede Datei: eine Zeile `FILE: dateiname` und direkt darunter ein Codeblock mit dem VOLLSTÄNDIGEN Inhalt. Einstiegspunkt ist immer index.html; CSS/JS dürfen als style.css / script.js getrennt sein (in index.html per <link href=\"style.css\"> bzw. <script src=\"script.js\"> einbinden) oder inline stehen. Keine Build-Tools; externe Bibliotheken nur per CDN. Gib bei Änderungen NUR die geänderten Dateien vollständig zurück.";
 
 /* ---------- Navigation ---------- */
-const titles={chat:"Chat",studio:"Studio – Live-Vorschau",images:"Bildgenerator",write:"Schreibwerkstatt",voice:"Sprache"};
+const titles={chat:"Chat",studio:"Studio – Live-Vorschau",images:"Bildgenerator",write:"Schreibwerkstatt",voice:"Sprache",diagram:"Diagramme & Mindmaps",data:"Daten & Charts",compare:"Modell-Vergleich"};
 function show(v){$$(".view").forEach(e=>e.classList.toggle("on",e.id==="v-"+v));$$(".nav").forEach(b=>b.classList.toggle("on",b.dataset.v===v));$("#title").textContent=titles[v];$("#side").classList.remove("open")}
 $$(".nav[data-v]").forEach(b=>b.onclick=()=>show(b.dataset.v));
 $("#openPA").onclick=()=>window.open("prompt.html","aioPrompt","width=480,height=760,resizable=yes");
@@ -446,10 +495,63 @@ $("#cfg").onclick=()=>{$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg
 $("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
 $("#exp").onclick=()=>{const md=S.chats.map(c=>"# "+c.title+"\n\n"+c.msgs.map(m=>"**"+(m.role==="user"?"Du":"KI")+":** "+(m.display??m.content)).join("\n\n")).join("\n\n---\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download="chats.md";a.click()};
 $("#wipe").onclick=()=>{if(confirm("Alle Chats & Bilder löschen?")){try{localStorage.removeItem("aio")}catch{}location.reload()}};
-function fillModels(list){$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
+function fillModels(list){setTimeout(()=>fillCompare(list));$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
 fillModels(["openai","openai-fast","mistral","llama","deepseek"]);
 $("#model").onchange=e=>{S.model=e.target.value;save()};
 fetch("https://text.pollinations.ai/models").then(r=>r.json()).then(l=>{const n=l.map(x=>x.name||x).filter(Boolean);if(n.length){if(!n.includes(S.model))S.model=n[0];fillModels(n)}}).catch(()=>{});
+
+
+/* ---------- Diagramme & Mindmaps ---------- */
+let mmN=0;
+async function mermaidReady(){if(!window.mermaid){await loadScript("https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js");mermaid.initialize({startOnLoad:false,theme:"default",securityLevel:"strict"})}}
+const stripFence=t=>t.replace(/^\s*```(?:mermaid)?\s*\n?/i,"").replace(/```\s*$/,"").trim();
+async function drawMermaid(code){await mermaidReady();const {svg}=await mermaid.render("mm"+(++mmN),code);$("#dgOut").innerHTML=svg;$("#dgRes").style.display=""}
+$("#dgGo").onclick=async()=>{const t=$("#dgIn").value.trim();if(!t)return;const type=$("#dgType").value,st=$("#dgSt"),btn=$("#dgGo");btn.disabled=true;
+  try{
+    st.textContent="Die KI entwirft das Diagramm …";let code=stripFence(await ask1([{role:"system",content:`Du erzeugst Mermaid-Diagramme. Diagrammtyp: ${type}. Gib AUSSCHLIESSLICH gültigen Mermaid-Code aus (kein Markdown, keine Erklärung). Beschriftungen in der Sprache des Nutzers, ohne Sonderzeichen wie Klammern oder Anführungszeichen in Knotentexten, wenn möglich.`},{role:"user",content:t}]));
+    for(let i=0;i<2;i++){try{$("#dgCode").value=code;await drawMermaid(code);st.textContent="Fertig ✔";return}catch(e){
+      if(i)throw e;st.textContent="Korrigiere Syntaxfehler …";code=stripFence(await ask1([{role:"system",content:"Repariere den Mermaid-Code. Gib NUR den korrigierten Code aus."},{role:"user",content:"Code:\n"+code+"\n\nFehler: "+String(e.message||e).slice(0,300)}]))}}
+  }catch(e){st.textContent="⚠️ Konnte nicht gezeichnet werden: "+(e.message||e).toString().slice(0,120)}finally{btn.disabled=false}};
+$("#dgRe").onclick=async()=>{try{await drawMermaid($("#dgCode").value);$("#dgSt").textContent="Fertig ✔"}catch(e){$("#dgSt").textContent="⚠️ Syntaxfehler im Code"}};
+$("#dgCopy").onclick=()=>copy($("#dgCode").value);
+$("#dgSvg").onclick=()=>{const v=$("#dgOut svg");if(v)dl(new Blob([new XMLSerializer().serializeToString(v)],{type:"image/svg+xml"}),"diagramm.svg")};
+$("#dgPng").onclick=()=>{const v=$("#dgOut svg");if(!v)return;const r=v.getBoundingClientRect(),x=new XMLSerializer().serializeToString(v),i=new Image();
+  i.onload=()=>{const c=document.createElement("canvas");c.width=r.width*2;c.height=r.height*2;const g=c.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,c.width,c.height);g.drawImage(i,0,0,c.width,c.height);c.toBlob(b=>dl(b,"diagramm.png"))};
+  i.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(x)};
+
+/* ---------- Daten & Charts ---------- */
+let table={head:[],rows:[]},chart=null;
+function parseCSV(t){t=t.replace(/^﻿/,"").trim();const first=t.split("\n")[0],d=[";","\t",","].map(c=>[c,first.split(c).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const rows=[];let row=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];
+    if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}
+    else if(c==='"')q=true;else if(c===d){row.push(f);f=""}else if(c==="\n"){row.push(f.replace(/\r$/,""));rows.push(row);row=[];f=""}else f+=c}
+  row.push(f);rows.push(row);return{head:rows[0].map(x=>x.trim()),rows:rows.slice(1).filter(r=>r.some(x=>x.trim()))}}
+const num=v=>{const n=parseFloat(String(v).replace(/\s/g,"").replace(",","."));return isNaN(n)||!/^-?[\d.,\s]+%?$/.test(String(v).trim())?null:n};
+function loadTable(txt){try{table=parseCSV(txt)}catch{return toast("Daten nicht lesbar")}
+  if(!table.head.length||!table.rows.length)return toast("Keine Daten gefunden");
+  $("#dtRes").style.display="";$("#dtInfo").textContent=`${table.rows.length} Zeilen · ${table.head.length} Spalten`;
+  $("#dtTab").innerHTML="<tr>"+table.head.map(h=>`<th style="text-align:left;border-bottom:1px solid var(--line);padding:3px 8px">${esc(h)}</th>`).join("")+"</tr>"+table.rows.slice(0,50).map(r=>"<tr>"+table.head.map((_,i)=>`<td style="padding:3px 8px;border-bottom:1px solid var(--line)">${esc(r[i]??"")}</td>`).join("")+"</tr>").join("");
+  $("#dtStats").textContent=statsText()}
+function statsText(){return table.head.map((h,i)=>{const col=table.rows.map(r=>r[i]??"").filter(x=>x!==""),ns=col.map(num).filter(x=>x!==null);
+  if(ns.length>col.length*.8&&ns.length){const sum=ns.reduce((a,b)=>a+b,0);return`${h}: Zahl, min ${Math.min(...ns)}, max ${Math.max(...ns)}, Ø ${(sum/ns.length).toFixed(2)}, Summe ${+sum.toFixed(2)}`}
+  return`${h}: Text, ${new Set(col).size} verschiedene Werte`}).join(" | ")}
+const tableCtx=()=>`Spalten & Statistik: ${statsText()}\nAnzahl Zeilen: ${table.rows.length}\nErste Zeilen (CSV):\n${[table.head,...table.rows.slice(0,80)].map(r=>r.join(";")).join("\n")}`;
+$("#csvFile").onchange=async e=>{const f=e.target.files[0];if(f)loadTable(await f.text())};
+$("#csvLoad").onclick=()=>$("#csvIn").value.trim()&&loadTable($("#csvIn").value);
+$("#dtAsk").onclick=async()=>{const q=$("#dtQ").value.trim()||"Gib mir einen Überblick über die Daten und auffällige Erkenntnisse.",o=$("#dtOut");o.classList.add("dots");
+  let t="";try{t=await ask([{role:"system",content:"Du bist Datenanalyst. Antworte präzise anhand der Daten, in der Sprache des Nutzers. Rechne nur mit den gegebenen Werten und weise darauf hin, wenn du nur eine Stichprobe siehst."},{role:"user",content:tableCtx()+"\n\nFrage: "+q}],x=>{t=x;render(o,x)})}catch(e){t="⚠️ "+e.message}o.classList.remove("dots");render(o,t)};
+$("#dtChart").onclick=async()=>{const q=$("#dtQ").value.trim()||"Das aussagekräftigste Diagramm",btn=$("#dtChart");btn.disabled=true;
+  try{const raw=await ask1([{role:"system",content:'Du erzeugst Chart.js-Konfigurationen. Antworte NUR mit JSON: {"type":"bar|line|pie|doughnut|scatter","title":"…","labels":[…],"datasets":[{"label":"…","data":[…]}]}. Verwende ausschließlich Zahlen aus den Daten (aggregiere selbst, z. B. Summen pro Kategorie, max. 30 Punkte).'},{role:"user",content:tableCtx()+"\n\nWunsch: "+q}]);
+    const c=JSON.parse(raw.match(/\{[\s\S]*\}/)[0]);if(!window.Chart)await loadScript("https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js");
+    chart&&chart.destroy();$("#chWrap").style.display="";chart=new Chart($("#chCv"),{type:c.type||"bar",data:{labels:c.labels,datasets:c.datasets},options:{plugins:{title:{display:!!c.title,text:c.title}}}})}
+  catch(e){toast("Diagramm fehlgeschlagen – anders formulieren?")}finally{btn.disabled=false}};
+
+/* ---------- Modell-Vergleich ---------- */
+function fillCompare(list){const used=new Set();document.querySelectorAll(".cpM").forEach((sel,i)=>{const pick=list.includes(sel.value)&&!used.has(sel.value)?sel.value:(list.find(m=>!used.has(m))||list[i%list.length]);used.add(pick);sel.innerHTML=list.map(m=>`<option ${m===pick?"selected":""}>${esc(m)}</option>`).join("")})}
+$("#cpGo").onclick=()=>{const q=$("#cpIn").value.trim();if(!q)return;const g=$("#cpGrid");g.innerHTML="";
+  document.querySelectorAll(".cpM").forEach(sel=>{const m=sel.value,card=document.createElement("div");card.className="panel";card.innerHTML=`<b>${esc(m)}</b><div class="body"></div>`;g.appendChild(card);
+    const o=card.querySelector(".body");o.classList.add("dots");let t="";
+    ask([{role:"system",content:S.sys},{role:"user",content:q}],x=>{t=x;render(o,x)},undefined,m).catch(e=>{t=t||"⚠️ "+e.message}).then(()=>{o.classList.remove("dots");render(o,t)})})};
 
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 drawChat();drawImages();drawStudio();refresh();
