@@ -8,7 +8,7 @@ Internet; der Server braucht keine eigene Rechenleistung und keinen API-Key.
 
 Auf dem **Server**. `server.py` liefert die App aus und speichert Chats, Bilder-Verlauf,
 Studio-Projekte und Prompts als JSON-Dateien im Datenordner. Jedes Gerät im Netz sieht denselben Stand.
-Öffnet jemand auf einem anderen Gerät die App, während du etwas änderst, erscheint ein Hinweis
+Öffnet dasselbe Profil jemand auf einem anderen Gerät, während du etwas änderst, erscheint ein Hinweis
 „Neu laden“. Ohne Server (z. B. `index.html` per Doppelklick) bleibt alles lokal im Browser.
 
 Lokale Kopie gewünscht? In der App unter ⚙️ → **Backup herunterladen** (eine JSON-Datei) bzw.
@@ -16,6 +16,17 @@ Lokale Kopie gewünscht? In der App unter ⚙️ → **Backup herunterladen** (e
 
 Die KI-Anfragen selbst gehen weiterhin direkt vom Browser zu Pollinations.ai – der Server braucht
 keine Rechenleistung und keinen API-Key.
+
+## Profile (mehrere Personen)
+
+Beim ersten Öffnen wählst du ein Profil oder legst ein neues an („Papa“, „Anna“ …). Jedes Profil hat **eigene**
+Chats, Studio-Projekte, Bilder und Prompts; der Server speichert sie getrennt (`data/<profil>/`).
+Optional schützt eine **PIN** (mind. 4 Zeichen) ein Profil. In der Seitenleiste wechselst du mit „👤 Name ⇄“,
+unter ⚙️ kannst du ein Profil samt Daten löschen.
+
+Die PIN ist ein Schutz vor neugierigen Mitnutzern, **keine Verschlüsselung**: Wer Zugriff auf die Dateien des Servers hat,
+kann die Daten trotzdem lesen. Nach 5 falschen Eingaben gibt es eine kurze Sperre.
+Bestehende Daten einer älteren Version landen automatisch im Profil „Standard“.
 
 ## Variante A: Docker (empfohlen)
 
@@ -52,6 +63,25 @@ AIO_PASSWORD=meinpasswort docker compose up -d --build
 
 Hinweis: Über HTTP wird das Passwort im Heimnetz unverschlüsselt übertragen (Basic-Auth). Für mehr
 Schutz die HTTPS-Variante unten nutzen.
+
+## Von unterwegs erreichen (Tailscale)
+
+[Tailscale](https://tailscale.com) verbindet deine Geräte über ein privates, verschlüsseltes Netz –
+ohne Portfreigabe im Router. Die App ist dann auch von außerhalb deines Heimnetzes erreichbar,
+aber nur für Geräte, die in **deinem** Tailscale-Konto angemeldet sind.
+
+1. Tailscale auf dem Server installieren und anmelden: `curl -fsSL https://tailscale.com/install.sh | sh && sudo tailscale up`
+2. Tailscale auf Handy/Laptop installieren und mit demselben Konto anmelden.
+3. Einfachste Variante: Aufruf per Tailscale-IP oder MagicDNS-Name, z. B. `http://100.x.y.z:8080`
+   bzw. `http://meinserver:8080` (Name steht in der Tailscale-App; IP: `tailscale ip -4`).
+4. **Empfohlen – echtes HTTPS** (damit auch Mikrofon und App-Installation funktionieren, ohne eigene Zertifikate):
+   Im [Tailscale-Admin](https://login.tailscale.com/admin/dns) „HTTPS Certificates“ aktivieren und dann auf dem Server
+   `sudo ./deploy/tailscale.sh` ausführen (macht `tailscale serve --bg 8080`).
+   Aufruf: `https://<servername>.<tailnet>.ts.net`.
+
+**Wichtig:** Nutze `tailscale serve` (nur dein Tailnet), **nicht** `tailscale funnel` – Funnel würde die App
+öffentlich im Internet erreichbar machen. Setze zusätzlich ein Passwort (`AIO_PASSWORD`) und PINs für Profile,
+falls du das Tailnet mit anderen teilst.
 
 ## Firewall
 

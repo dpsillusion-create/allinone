@@ -105,6 +105,7 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
 <body>
 <nav id="side">
   <h1>✨ AllInOne KI</h1>
+  <button class="nav" id="profBtn" style="display:none" title="Profil wechseln"></button>
   <button class="nav on" data-v="chat">💬 Chat</button>
   <button class="nav" data-v="studio">🧩 Studio (Live-Vorschau)</button>
   <button class="nav" data-v="images">🎨 Bilder</button>
@@ -255,6 +256,7 @@ label{font-size:12px;color:var(--muted);display:block;margin:8px 0 4px}
   <textarea id="sys" style="width:100%;min-height:90px"></textarea>
   <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="speak"> Antworten automatisch vorlesen</label>
   <label>Speicherort</label><div id="storeInfo" style="font-size:13px"></div>
+  <div class="row" id="profRow" style="display:none"><span id="profName"></span><button id="profSwitch">⇄ Profil wechseln</button><button id="profDel">🗑 Profil löschen</button></div>
   <div class="row"><button id="bkDl">⬇ Backup herunterladen</button><button id="bkUp">⬆ Backup einspielen</button><input type="file" id="bkFile" accept=".json" hidden></div>
   <div class="row" style="justify-content:space-between"><button id="exp">Chats exportieren</button><button id="wipe">Alle Daten löschen</button><button class="primary" id="dlgOk">Fertig</button></div>
 </dialog>
@@ -494,7 +496,11 @@ function speak(t,i){if(!("speechSynthesis"in window))return;speechSynthesis.canc
 $("#tPlay").onclick=()=>speak($("#tTxt").value||"Bitte gib einen Text ein.");$("#tStop").onclick=()=>speechSynthesis.cancel();
 
 /* ---------- Einstellungen & Modelle ---------- */
-function storeInfo(){const st=window.AIO_STORE||{};$("#storeInfo").textContent=st.server?(st.error?"⚠️ Server nicht erreichbar – Änderungen sind vorerst nur lokal":"✅ Auf dem Server gespeichert – auf allen Geräten verfügbar"):"💾 Nur lokal in diesem Browser"}
+const AS=()=>window.AIO_STORE||{};
+if(AS().profile){$("#profBtn").style.display="";$("#profBtn").textContent="👤 "+AS().profile.name+"  ⇄";$("#profBtn").onclick=()=>AS().switchProfile()}
+$("#profSwitch").onclick=()=>AS().switchProfile();
+$("#profDel").onclick=()=>{if(confirm("Profil „"+AS().profile.name+"“ mit ALLEN Chats, Projekten und Prompts endgültig löschen?")&&!AS().deleteProfile())toast("Löschen nicht möglich")};
+function storeInfo(){$("#profRow").style.display=AS().profile?"":"none";if(AS().profile)$("#profName").textContent="👤 "+AS().profile.name;const st=window.AIO_STORE||{};$("#storeInfo").textContent=st.server?(st.error?"⚠️ Server nicht erreichbar – Änderungen sind vorerst nur lokal":"✅ Auf dem Server gespeichert – auf allen Geräten verfügbar"):"💾 Nur lokal in diesem Browser"}
 $("#bkDl").onclick=()=>{const o={_aio:1,date:new Date().toISOString()};(window.AIO_KEYS||["aio"]).forEach(k=>{try{const v=localStorage.getItem(k);if(v!=null)o[k]=JSON.parse(v)}catch{}});dl(new Blob([JSON.stringify(o)],{type:"application/json"}),"allinone-backup.json")};
 $("#bkUp").onclick=()=>$("#bkFile").click();
 $("#bkFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;try{const o=JSON.parse(await f.text());if(!o._aio)throw 0;
@@ -502,7 +508,7 @@ $("#bkFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!
 $("#cfg").onclick=()=>{storeInfo();$("#sys").value=S.sys;$("#speak").checked=S.speak;$("#dlg").showModal()};
 $("#dlgOk").onclick=()=>{S.sys=$("#sys").value||S.sys;S.speak=$("#speak").checked;save();$("#dlg").close()};
 $("#exp").onclick=()=>{const md=S.chats.map(c=>"# "+c.title+"\n\n"+c.msgs.map(m=>"**"+(m.role==="user"?"Du":"KI")+":** "+(m.display??m.content)).join("\n\n")).join("\n\n---\n\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([md],{type:"text/markdown"}));a.download="chats.md";a.click()};
-$("#wipe").onclick=()=>{if(confirm("Alle Chats, Bilder, Projekte und Prompts löschen (auch auf dem Server)?")){(window.AIO_KEYS||["aio"]).forEach(k=>{try{localStorage.removeItem(k)}catch{}});location.reload()}};
+$("#wipe").onclick=()=>{if(confirm("Alle Chats, Bilder, Projekte und Prompts dieses Profils löschen (auch auf dem Server)?")){(window.AIO_KEYS||["aio"]).forEach(k=>{try{localStorage.removeItem(k)}catch{}});location.reload()}};
 function fillModels(list){setTimeout(()=>fillCompare(list));$("#model").innerHTML=list.map(m=>`<option ${m===S.model?"selected":""}>${esc(m)}</option>`).join("")}
 fillModels(["openai","openai-fast","mistral","llama","deepseek"]);
 $("#model").onchange=e=>{S.model=e.target.value;save()};

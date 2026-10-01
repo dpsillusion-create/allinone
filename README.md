@@ -13,7 +13,7 @@ Kostenlose All-in-One-KI als einzelne `index.html` – ohne Anmeldung, ohne API-
 - ✍️ **Schreibwerkstatt** (E-Mail, Zusammenfassen, Übersetzen, Korrigieren …)
 - 🎙️ **Sprache** (Diktieren & Vorlesen, nutzt Browser-Funktionen)
 
-🖥️ **Eigener Server:** Anleitung für Docker/systemd im Heimnetz in [DEPLOY.md](DEPLOY.md).
+🖥️ **Eigener Server:** Anleitung für Docker/systemd im Heimnetz, Profile mit PIN und Zugriff von unterwegs über Tailscale in [DEPLOY.md](DEPLOY.md).
 
 KI-Engine: [Pollinations.ai](https://pollinations.ai) (kostenlos). Start: `index.html` im Browser öffnen oder per GitHub Pages hosten.
 Daten: mit `server.py` (siehe DEPLOY.md) zentral auf deinem Server, auf allen Geräten gleich; ohne Server lokal im Browser. Backup-Download/-Upload unter ⚙️.
